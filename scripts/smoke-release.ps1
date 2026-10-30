@@ -172,6 +172,10 @@ if (-not (Wait-Text '录入默认值')) { Fail '没有进入设置页' }
 if (-not (Wait-Text '默认上班时间')) { Fail '设置页缺少「默认上班时间」' }
 if (-not (Wait-Text '休息扣除单位')) { Fail '设置页缺少「休息扣除单位」' }
 
+Write-Step '切换休息单位（验证 DataStore 写入在 R8 下正常）'
+Tap-Text '分钟'
+if (-not (Wait-Text '按分钟填写')) { Fail '休息单位切换没有生效' }
+
 Write-Step '配置薪资规则（月薪 10000 / 21.75 天 / 8 小时）'
 Tap-Text '去配置'
 if (-not (Wait-Text '保存规则')) { Fail '没有进入薪资规则页' }
