@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.overtimelog.core.model.MonthlySummary
+import com.overtimelog.core.model.SettlementStatus
 import com.overtimelog.core.model.YearSummary
 import com.overtimelog.di.AppContainer
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -22,6 +23,8 @@ data class StatsUiState(
     val mode: StatsMode = StatsMode.MONTH,
     val month: YearMonth = YearMonth.now(),
     val year: Int = YearMonth.now().year,
+    /** null = 全部；否则只统计该结算状态的记录。 */
+    val settlement: SettlementStatus? = null,
     val monthSummary: MonthlySummary = MonthlySummary(YearMonth.now()),
     val yearSummary: YearSummary = YearSummary(YearMonth.now().year),
 )
@@ -29,7 +32,8 @@ data class StatsUiState(
 /**
  * 统计页状态。
  *
- * 月度汇总和年度汇总都来自 SQL 聚合，切换月份只是换一条查询。
+ * 月度汇总和年度汇总都来自 SQL 聚合；切换月份或结算状态只是换一条查询。
+ * 结算状态筛选在 SQL 里完成（`settlement_status = ?`），不会把记录全捞出来再过滤。
  */
 class StatsViewModel(
     container: AppContainer,
@@ -38,31 +42,53 @@ class StatsViewModel(
     private val mode = MutableStateFlow(StatsMode.MONTH)
     private val month = MutableStateFlow(YearMonth.now())
     private val year = MutableStateFlow(YearMonth.now().year)
+    private val settlement = MutableStateFlow<SettlementStatus?>(null)
+
+    private val monthFilter = combine(month, settlement) { currentMonth, status ->
+        currentMonth to status
+    }
+
+    private val yearFilter = combine(year, settlement) { currentYear, status ->
+        currentYear to status
+    }
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    private val monthSummary = month.flatMapLatest { container.overtimeRepository.observeMonthSummary(it) }
+    private val monthSummary = monthFilter.flatMapLatest { (currentMonth, status) ->
+        container.overtimeRepository.observeMonthSummary(currentMonth, status)
+    }
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    private val yearSummary = year.flatMapLatest { container.overtimeRepository.observeYearSummary(it) }
+    private val yearSummary = yearFilter.flatMapLatest { (currentYear, status) ->
+        container.overtimeRepository.observeYearSummary(currentYear, status)
+    }
+
+    private val summaries = combine(monthSummary, yearSummary) { monthData, yearData ->
+        monthData to yearData
+    }
 
     val uiState: StateFlow<StatsUiState> = combine(
         mode,
         month,
         year,
-        monthSummary,
-        yearSummary,
-    ) { currentMode, currentMonth, currentYear, monthData, yearData ->
+        settlement,
+        summaries,
+    ) { currentMode, currentMonth, currentYear, currentSettlement, data ->
         StatsUiState(
             mode = currentMode,
             month = currentMonth,
             year = currentYear,
-            monthSummary = monthData,
-            yearSummary = yearData,
+            settlement = currentSettlement,
+            monthSummary = data.first,
+            yearSummary = data.second,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), StatsUiState())
 
     fun setMode(newMode: StatsMode) {
         mode.value = newMode
+    }
+
+    fun setSettlement(status: SettlementStatus?) {
+        settlement.value = status
     }
 
     fun previous() {

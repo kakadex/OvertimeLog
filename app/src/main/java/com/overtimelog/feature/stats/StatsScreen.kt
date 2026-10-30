@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.overtimelog.core.model.MonthlySummary
+import com.overtimelog.core.model.SettlementStatus
 import com.overtimelog.core.model.YearSummary
 import com.overtimelog.di.AppContainer
 import com.overtimelog.ui.common.DateTexts
@@ -74,6 +75,23 @@ fun StatsScreen(container: AppContainer) {
                         onClick = { viewModel.setMode(StatsMode.YEAR) },
                         label = { Text("年度") },
                     )
+                }
+            }
+
+            item {
+                // 结算状态筛选：只统计对应状态的记录，SQL 里就过滤好，不是先全查再筛
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf<SettlementStatus?>(
+                        null,
+                        SettlementStatus.UNSETTLED,
+                        SettlementStatus.SETTLED,
+                    ).forEach { status ->
+                        FilterChip(
+                            selected = state.settlement == status,
+                            onClick = { viewModel.setSettlement(status) },
+                            label = { Text(status?.label() ?: "全部状态") },
+                        )
+                    }
                 }
             }
 

@@ -59,13 +59,14 @@ class RoomOvertimeRepository(
     override fun observeDayRecords(date: LocalDate): Flow<List<OvertimeRecord>> =
         recordDao.observeDay(date.toEpochDay()).map { list -> list.map { it.toDomain() } }
 
-    override fun observeMonthSummary(month: YearMonth): Flow<MonthlySummary> {
+    override fun observeMonthSummary(month: YearMonth, settlement: SettlementStatus?): Flow<MonthlySummary> {
         val from = month.atDay(1).toEpochDay()
         val to = month.atEndOfMonth().toEpochDay()
+        val status = settlement?.code
         return combine(
-            recordDao.observeTotals(from, to),
-            recordDao.observeMonthlyByType(from, to),
-            recordDao.observeCompEarned(from, to),
+            recordDao.observeTotals(from, to, status),
+            recordDao.observeMonthlyByType(from, to, status),
+            recordDao.observeCompEarned(from, to, status),
             usageDao.observeUsedInRange(from, to),
         ) { totals, byType, earned, used ->
             MonthlySummary(
@@ -83,10 +84,10 @@ class RoomOvertimeRepository(
         }
     }
 
-    override fun observeYearSummary(year: Int): Flow<YearSummary> {
+    override fun observeYearSummary(year: Int, settlement: SettlementStatus?): Flow<YearSummary> {
         val from = LocalDate.of(year, 1, 1).toEpochDay()
         val to = LocalDate.of(year, 12, 31).toEpochDay()
-        return recordDao.observeMonthlyTotals(from, to).map { rows ->
+        return recordDao.observeMonthlyTotals(from, to, settlement?.code).map { rows ->
             val byMonth = rows.associateBy { it.month }
             val months = (1..12).map { m ->
                 val row = byMonth[m]

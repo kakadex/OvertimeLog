@@ -33,8 +33,9 @@ data class DayMarker(
 interface OvertimeRepository {
     fun observeRecords(filter: RecordFilter): Flow<List<OvertimeRecord>>
     fun observeDayRecords(date: LocalDate): Flow<List<OvertimeRecord>>
-    fun observeMonthSummary(month: YearMonth): Flow<MonthlySummary>
-    fun observeYearSummary(year: Int): Flow<YearSummary>
+    /** [settlement] 为空表示不筛选；统计页用它切换「全部 / 未结算 / 已结算」。 */
+    fun observeMonthSummary(month: YearMonth, settlement: SettlementStatus? = null): Flow<MonthlySummary>
+    fun observeYearSummary(year: Int, settlement: SettlementStatus? = null): Flow<YearSummary>
     fun observeDayMarkers(month: YearMonth): Flow<List<DayMarker>>
     suspend fun getById(id: Long): OvertimeRecord?
     suspend fun insert(record: OvertimeRecord): Long

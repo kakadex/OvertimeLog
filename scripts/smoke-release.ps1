@@ -196,6 +196,12 @@ foreach ($expected in @('共 1 条记录', '3 小时', '¥258.62')) {
     Write-Host "    找到「$expected」"
 }
 
+Write-Step '统计页结算状态筛选'
+Tap-Text '统计'
+if (-not (Wait-Text '全部状态')) { Fail '统计页没有结算状态筛选项' }
+Tap-Text '概览'
+if (-not (Wait-Text '本月概览')) { Fail '从统计页返回概览失败' }
+
 # ---------- 7. 数据库直连（可选） ----------
 # release 包不可 run-as，拿不到私有目录；能拿到时再查一遍，拿不到就以界面断言为准。
 Write-Step '数据库直连校验（可选）'

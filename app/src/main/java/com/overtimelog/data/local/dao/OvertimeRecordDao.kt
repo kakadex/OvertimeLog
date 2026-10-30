@@ -93,11 +93,16 @@ interface OvertimeRecordDao {
                COUNT(*) AS count
         FROM overtime_records
         WHERE date_epoch_day BETWEEN :from AND :to
+          AND (:settlement IS NULL OR settlement_status = :settlement)
         GROUP BY type
         ORDER BY totalMinutes DESC
         """,
     )
-    fun observeMonthlyByType(from: Long, to: Long): Flow<List<TypeSummaryRow>>
+    fun observeMonthlyByType(
+        from: Long,
+        to: Long,
+        settlement: String?,
+    ): Flow<List<TypeSummaryRow>>
 
     @Query(
         """
@@ -109,12 +114,19 @@ interface OvertimeRecordDao {
                COUNT(DISTINCT date_epoch_day) AS overtimeDays
         FROM overtime_records
         WHERE date_epoch_day BETWEEN :from AND :to
+          AND (:settlement IS NULL OR settlement_status = :settlement)
         """,
     )
-    fun observeTotals(from: Long, to: Long): Flow<MonthTotalsRow>
+    fun observeTotals(from: Long, to: Long, settlement: String?): Flow<MonthTotalsRow>
 
-    @Query("SELECT COALESCE(SUM(comp_time_minutes), 0) FROM overtime_records WHERE date_epoch_day BETWEEN :from AND :to")
-    fun observeCompEarned(from: Long, to: Long): Flow<Int>
+    @Query(
+        """
+        SELECT COALESCE(SUM(comp_time_minutes), 0) FROM overtime_records
+        WHERE date_epoch_day BETWEEN :from AND :to
+          AND (:settlement IS NULL OR settlement_status = :settlement)
+        """,
+    )
+    fun observeCompEarned(from: Long, to: Long, settlement: String?): Flow<Int>
 
     @Query("SELECT COALESCE(SUM(comp_time_minutes), 0) FROM overtime_records")
     fun observeCompEarnedAll(): Flow<Int>
@@ -142,10 +154,11 @@ interface OvertimeRecordDao {
                COALESCE(SUM(amount_cents), 0) AS amountCents
         FROM overtime_records
         WHERE date_epoch_day BETWEEN :from AND :to
+          AND (:settlement IS NULL OR settlement_status = :settlement)
         GROUP BY month
         """,
     )
-    fun observeMonthlyTotals(from: Long, to: Long): Flow<List<MonthRow>>
+    fun observeMonthlyTotals(from: Long, to: Long, settlement: String?): Flow<List<MonthRow>>
 
     @Query("UPDATE overtime_records SET settlement_status = :status, updated_at = :now WHERE id IN (:ids)")
     suspend fun updateSettlement(ids: List<Long>, status: String, now: Long)
