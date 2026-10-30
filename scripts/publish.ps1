@@ -79,8 +79,20 @@ if ($Repo -notmatch '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$') {
 }
 
 # ---------- token ----------
+# 先读当前进程环境变量；读不到再读用户级变量（兼容 setx 之后本进程没重启的情况）。
+function Get-EnvValue([string]$name) {
+    $value = [Environment]::GetEnvironmentVariable($name, 'Process')
+    if (-not $value) { $value = [Environment]::GetEnvironmentVariable($name, 'User') }
+    return $value
+}
 if (-not $Token) {
-    $Token = if ($Provider -eq 'gitee') { $env:GITEE_TOKEN } else { if ($env:GITHUB_TOKEN) { $env:GITHUB_TOKEN } else { $env:GH_TOKEN } }
+    $Token = if ($Provider -eq 'gitee') {
+        Get-EnvValue 'GITEE_TOKEN'
+    } else {
+        $gh = Get-EnvValue 'GITHUB_TOKEN'
+        if (-not $gh) { $gh = Get-EnvValue 'GH_TOKEN' }
+        $gh
+    }
 }
 if (-not $Token -and -not $DryRun) {
     $var = if ($Provider -eq 'gitee') { 'GITEE_TOKEN' } else { 'GITHUB_TOKEN' }
