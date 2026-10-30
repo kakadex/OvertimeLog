@@ -66,7 +66,8 @@ class RoomOvertimeRepository(
         return combine(
             recordDao.observeTotals(from, to, status),
             recordDao.observeMonthlyByType(from, to, status),
-            recordDao.observeCompEarned(from, to, status),
+            // 调休是独立账本：不随结算状态筛选变化，始终按整月统计
+            recordDao.observeCompEarned(from, to, null),
             usageDao.observeUsedInRange(from, to),
         ) { totals, byType, earned, used ->
             MonthlySummary(

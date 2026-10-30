@@ -116,7 +116,7 @@ fun StatsScreen(container: AppContainer) {
             }
 
             if (state.mode == StatsMode.MONTH) {
-                monthContent(state.monthSummary)
+                monthContent(state.monthSummary, state.settlement)
             } else {
                 yearContent(state.yearSummary)
             }
@@ -124,7 +124,10 @@ fun StatsScreen(container: AppContainer) {
     }
 }
 
-private fun androidx.compose.foundation.lazy.LazyListScope.monthContent(summary: MonthlySummary) {
+private fun androidx.compose.foundation.lazy.LazyListScope.monthContent(
+    summary: MonthlySummary,
+    settlement: SettlementStatus?,
+) {
     item {
         SectionCard(title = "本月合计") {
             Column {
@@ -152,6 +155,14 @@ private fun androidx.compose.foundation.lazy.LazyListScope.monthContent(summary:
                 )
                 InfoRow("调休使用", Durations.text(summary.compTimeUsedMinutes))
                 InfoRow("调休余额", Durations.text(summary.compTimeBalanceMinutes))
+                if (settlement != null) {
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = "调休按整月统计，不随上面的结算状态筛选变化。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         }
     }
