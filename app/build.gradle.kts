@@ -21,8 +21,11 @@ android {
 
     buildTypes {
         release {
-            // 项目早期先不开混淆：便于看崩溃堆栈。上线前再打开 R8 并配签名。
-            isMinifyEnabled = false
+            // 开启 R8 代码压缩 + 资源裁剪。实测：debug 13.3 MB -> release 1.8 MB。
+            // 以后接入反射或 kotlinx.serialization（比如备份 JSON）时，要在 proguard-rules.pro 补 keep 规则，
+            // 否则类会被裁掉、运行时才报错。
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",

@@ -67,6 +67,20 @@ app 内部按包分层：`domain/`（仓库接口、用例）、`data/`（Room�
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
+## 包体积
+
+同一份代码，三种打包方式实测（Pixel 34 模拟器，AGP 9.1 / R8）：
+
+| 产物 | 大小 | 说明 |
+| --- | --- | --- |
+| debug（`assembleDebug`） | 13.3 MB | 不裁剪、不压缩，还带了仅调试用的 Compose 预览工具 |
+| release 未压缩（`isMinifyEnabled = false`） | 9.3 MB | 只是去掉了调试工具与调试信息 |
+| release + R8 + 资源裁剪（当前配置） | **1.8 MB** | 删除未引用代码与资源，已装模拟器验证功能正常 |
+
+体积几乎全在代码（dex）上：debug 包 12.5 MB 代码对 0.45 MB 资源、0.06 MB 原生库。原因是 Compose、Material 3、Navigation、Room、DataStore、Lifecycle 这些库的类在 debug 下全部保留，加上方法数超限被拆成 20 个 dex。
+
+发布建议：上架用 AAB（`bundleRelease`），Google Play 会按屏幕密度、ABI、语言拆分，用户实际下载量通常比 APK 再小一半以上。
+
 ## 测试现状
 
 - 计算引擎：17 个用例，覆盖跨天、休息扣除、三种倍率、月薪 / 时薪、四舍五入、24 小时边界、非法输入
