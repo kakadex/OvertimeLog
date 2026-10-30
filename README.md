@@ -57,7 +57,7 @@
 app/                      Android 应用：组装、导航、页面、数据实现
 core/model/               领域模型（纯 Kotlin/JVM）
 core/calculation/         计算引擎（纯 Kotlin/JVM，不依赖 Android）
-scripts/                  版本号、打包、发布冒烟脚本
+scripts/                  图标生成、本地测试打包等开发脚本
 docs/                     实现说明、数据库设计
 ```
 
@@ -79,28 +79,6 @@ app 内部按包分层：`domain/`（仓库接口、用例）、`data/`（Room�
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-## 发布前检查清单
-
-压缩包不能只看体积，必须确认功能没被裁掉。每次发版按顺序执行：
-
-```powershell
-# 1. 单测
-./gradlew :app:testDebugUnitTest :core:calculation:test
-
-# 2. 构建 R8 发布包
-./gradlew :app:assembleRelease
-
-# 3. 自动冒烟：装进模拟器，走"配规则 -> 记一笔 -> 保存"，断言条数/时长/金额
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke-release.ps1
-```
-
-冒烟脚本会自己构建、用本机 debug 证书签一个测试包（**不能用于发布**）、从干净数据开始跑一遍关键路径，最后检查日志无崩溃。
-
-R8 万一裁错了类，用这一条先关掉压缩定位问题（不改代码）：
-
-```powershell
-./gradlew :app:assembleRelease -PdisableR8=true
-```
 
 ## 包体积
 
@@ -131,27 +109,6 @@ R8 万一裁错了类，用这一条先关掉压缩定位问题（不改代码�
 加班费仅为个人参考估算，不代表公司实际结算，也不构成劳动法依据。
 
 
-## 版本与发布
-
-版本规则与 MusicOrganizer 保持一致：
-
-| 项 | 规则 |
-| --- | --- |
-| `VERSION` | X.Y.Z，第二、三段 0–99，满 100 进位；唯一真源 |
-| `BUILD_NUMBER` | 单调递增的 `versionCode` |
-| 发版 tag | `vX.Y.Z` |
-| APK / AAB 命名 | `OvertimeLog-<版本>-android-<abi>.apk`、`OvertimeLog-<版本>.aab` |
-| 分发包 | `dist/` 下同时生成 `SHA256SUMS.txt`、`latest.txt`、`README.txt`、混淆映射 |
-
-```powershell
-# 改版本（build 自动 +1）
-powershell -ExecutionPolicy Bypass -File .\scripts\set-version.ps1 1.0.1
-
-# 出正式包（校验签名 → 单测 → ABI 拆分 → 校验 → 清单）
-powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1
-```
-
-正式包必须用正式 keystore 签名，配置方法见 [SECRETS-SETUP.md](SECRETS-SETUP.md)，发版步骤见 [RELEASE.md](RELEASE.md)，上传到 Gitee / GitHub Releases 见 [PUBLISH.md](PUBLISH.md)。
 
 ## 开源协议
 
