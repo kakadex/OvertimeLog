@@ -25,6 +25,8 @@ LIGHT_BLUE = (91, 155, 213, 255)
 WHITE = (255, 255, 255, 255)
 # 中间「记」的橘红色（Material Deep Orange 600，浅蓝底上对比清楚）
 ACCENT = (244, 81, 30, 255)
+# 右下角「¥」的红色（与「记」的橘红区分开）
+RED = (229, 57, 53, 255)
 TRANSPARENT = (0, 0, 0, 0)
 BLACK = (0, 0, 0, 255)
 
@@ -105,6 +107,24 @@ def draw_dial(draw: ImageDraw.ImageDraw, size: int, radius_ratio: float, monochr
             font=font,
             fill=ACCENT,
             stroke_width=max(1, int(r * 0.075)),
+            stroke_fill=LIGHT_BLUE,
+        )
+
+    # 右下角人民币符号「¥」：放在表盘内的右下角（自适应图标安全区内），避免被圆形裁切
+    yen_font = load_font(int(r * 0.40))
+    yen_bbox = draw.textbbox((0, 0), "¥", font=yen_font)
+    yw, yh = yen_bbox[2] - yen_bbox[0], yen_bbox[3] - yen_bbox[1]
+    yx = cx + r * 0.58 - yw / 2 - yen_bbox[0]
+    yy = cy + r * 0.58 - yh / 2 - yen_bbox[1]
+    if monochrome:
+        draw.text((yx, yy), "¥", font=yen_font, fill=ink)
+    else:
+        draw.text(
+            (yx, yy),
+            "¥",
+            font=yen_font,
+            fill=RED,
+            stroke_width=max(1, int(r * 0.06)),
             stroke_fill=LIGHT_BLUE,
         )
 
