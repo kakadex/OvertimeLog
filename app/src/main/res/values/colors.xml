@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="ic_launcher_background">#3F5AA6</color>
+    <!-- 图标底色：浅蓝，与白色单线表盘形成对比 -->
+    <color name="ic_launcher_background">#5B9BD5</color>
 </resources>
