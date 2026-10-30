@@ -23,6 +23,8 @@ OUT = ROOT / "dist" / "icons"
 # 浅蓝底 + 白色线条（与 res/values/colors.xml 的 ic_launcher_background 保持一致）
 LIGHT_BLUE = (91, 155, 213, 255)
 WHITE = (255, 255, 255, 255)
+# 中间「记」的橘红色（Material Deep Orange 600，浅蓝底上对比清楚）
+ACCENT = (244, 81, 30, 255)
 TRANSPARENT = (0, 0, 0, 0)
 BLACK = (0, 0, 0, 255)
 
@@ -101,7 +103,7 @@ def draw_dial(draw: ImageDraw.ImageDraw, size: int, radius_ratio: float, monochr
             (tx, ty),
             GLYPH,
             font=font,
-            fill=WHITE,
+            fill=ACCENT,
             stroke_width=max(1, int(r * 0.075)),
             stroke_fill=LIGHT_BLUE,
         )
