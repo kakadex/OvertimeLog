@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -16,7 +17,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -24,6 +27,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -86,11 +90,13 @@ fun RecordEditScreen(
     var showDatePicker by remember { mutableStateOf(false) }
     var editingTime by remember { mutableStateOf<TimeTarget?>(null) }
     var overdraftMessage by remember { mutableStateOf<String?>(null) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.events.collect { event ->
             when (event) {
                 is RecordEditEvent.Saved -> onDone()
+                is RecordEditEvent.Deleted -> onDone()
                 is RecordEditEvent.Message -> snackbarHostState.showSnackbar(event.text)
                 is RecordEditEvent.AskOverdraft -> overdraftMessage = event.message
             }
@@ -134,22 +140,47 @@ fun RecordEditScreen(
                             )
                         }
                     }
-                    Button(
-                        onClick = { viewModel.save() },
-                        enabled = !state.saving && !state.loading,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(52.dp),
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        if (state.saving) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.width(20.dp).height(20.dp),
-                                strokeWidth = 2.dp,
-                                color = MaterialTheme.colorScheme.onPrimary,
-                            )
-                            Spacer(Modifier.width(8.dp))
+                        // 删除只在编辑已有记录时出现；新增时没有可删的东西。
+                        if (state.isEditing) {
+                            OutlinedButton(
+                                onClick = { showDeleteConfirm = true },
+                                enabled = !state.saving,
+                                modifier = Modifier.height(52.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = MaterialTheme.colorScheme.error,
+                                ),
+                            ) {
+                                Icon(
+                                    Icons.Default.Delete,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Text("删除记录")
+                            }
                         }
-                        Text(if (state.isEditing) "保存修改" else "保存")
+                        Button(
+                            onClick = { viewModel.save() },
+                            enabled = !state.saving && !state.loading,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(52.dp),
+                        ) {
+                            if (state.saving) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.width(20.dp).height(20.dp),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.onPrimary,
+                                )
+                                Spacer(Modifier.width(8.dp))
+                            }
+                            Text(if (state.isEditing) "保存修改" else "保存")
+                        }
                     }
                 }
             }
@@ -388,6 +419,19 @@ fun RecordEditScreen(
                 viewModel.save(allowOverdraft = true)
             },
             onDismiss = { overdraftMessage = null },
+        )
+    }
+
+    if (showDeleteConfirm) {
+        ConfirmDialog(
+            title = "删除这条记录？",
+            text = "这条加班记录和它折算的调休会一起删除，删除后只能重新录入。",
+            confirmText = "删除",
+            onConfirm = {
+                showDeleteConfirm = false
+                viewModel.delete()
+            },
+            onDismiss = { showDeleteConfirm = false },
         )
     }
 }

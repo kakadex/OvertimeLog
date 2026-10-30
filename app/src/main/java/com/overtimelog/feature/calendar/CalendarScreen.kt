@@ -17,13 +17,21 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -34,6 +42,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.overtimelog.core.model.OvertimeRecord
 import com.overtimelog.di.AppContainer
 import com.overtimelog.ui.common.DateTexts
+import com.overtimelog.ui.components.ConfirmDialog
 import com.overtimelog.ui.components.EmptyState
 import com.overtimelog.ui.components.MonthSwitcher
 import com.overtimelog.ui.components.RecordCard
@@ -53,8 +62,31 @@ fun CalendarScreen(
 ) {
     val viewModel: CalendarViewModel = viewModel(factory = CalendarViewModel.factory(container))
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
+    var deleteTarget by remember { mutableStateOf<OvertimeRecord?>(null) }
 
-    Scaffold(topBar = { TopAppBar(title = { Text("日历") }) }) { padding ->
+    LaunchedEffect(Unit) {
+        viewModel.events.collect { event ->
+            when (event) {
+                is CalendarEvent.Deleted -> {
+                    val result = snackbarHostState.showSnackbar(
+                        message = "已删除 ${DateTexts.full(event.record.date)} 的加班记录",
+                        actionLabel = "撤销",
+                        duration = SnackbarDuration.Short,
+                    )
+                    if (result == SnackbarResult.ActionPerformed) {
+                        viewModel.undoDelete(event.record)
+                    }
+                }
+                is CalendarEvent.Message -> snackbarHostState.showSnackbar(event.text)
+            }
+        }
+    }
+
+    Scaffold(
+        topBar = { TopAppBar(title = { Text("日历") }) },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+    ) { padding ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
@@ -119,10 +151,28 @@ fun CalendarScreen(
             } else {
                 items(state.dayRecords.size) { index ->
                     val record: OvertimeRecord = state.dayRecords[index]
-                    RecordCard(record = record, onClick = { onOpenRecord(record.id) })
+                    RecordCard(
+                        record = record,
+                        onClick = { onOpenRecord(record.id) },
+                        // 长按直接删（带二次确认和撤销），不用先点进编辑页
+                        onLongClick = { deleteTarget = record },
+                    )
                 }
             }
         }
+    }
+
+    deleteTarget?.let { record ->
+        ConfirmDialog(
+            title = "删除这条记录？",
+            text = "删除后可以在下方提示里点「撤销」找回。",
+            confirmText = "删除",
+            onConfirm = {
+                viewModel.delete(record)
+                deleteTarget = null
+            },
+            onDismiss = { deleteTarget = null },
+        )
     }
 }
 

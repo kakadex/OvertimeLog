@@ -1,6 +1,8 @@
 package com.overtimelog.ui.components
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -28,17 +30,24 @@ import com.overtimelog.ui.common.Money
  *
  * 一次显示：日期、类型、结算状态、起止时间、时长、金额，备注只显示一行。
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun RecordCard(
     record: OvertimeRecord,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    /** 长按回调：日历页用来快速删除，普通列表页不传就不响应长按。 */
+    onLongClick: (() -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
 ) {
+    val clickModifier = if (onLongClick != null) {
+        Modifier.combinedClickable(onClick = onClick, onLongClick = onLongClick)
+    } else {
+        Modifier.clickable(onClick = onClick)
+    }
     Card(modifier = modifier.fillMaxWidth()) {
         Row(
-            modifier = Modifier
-                .clickable(onClick = onClick)
+            modifier = clickModifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,

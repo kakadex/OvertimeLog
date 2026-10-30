@@ -56,6 +56,8 @@ data class RecordEditUiState(
 
 sealed interface RecordEditEvent {
     data class Saved(val recordId: Long) : RecordEditEvent
+    /** 删除成功，界面直接返回上一页。 */
+    data object Deleted : RecordEditEvent
     data class Message(val text: String) : RecordEditEvent
     data class AskOverdraft(val message: String) : RecordEditEvent
 }
@@ -267,6 +269,17 @@ class RecordEditViewModel(
                 },
             )
             _state.update { it.copy(saving = false) }
+        }
+    }
+
+    /** 删除当前记录（只在编辑已有记录时可用）。 */
+    fun delete() {
+        val id = recordId ?: return
+        viewModelScope.launch {
+            container.deleteRecord(id).fold(
+                onSuccess = { _events.send(RecordEditEvent.Deleted) },
+                onFailure = { _events.send(RecordEditEvent.Message(it.toUiMessage())) },
+            )
         }
     }
 
