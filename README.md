@@ -141,7 +141,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\set-version.ps1 1.0.1
 powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1
 ```
 
-正式包必须用正式 keystore 签名，配置方法见 [SECRETS-SETUP.md](SECRETS-SETUP.md)，发版步骤见 [RELEASE.md](RELEASE.md)。
+正式包必须用正式 keystore 签名，配置方法见 [SECRETS-SETUP.md](SECRETS-SETUP.md)，发版步骤见 [RELEASE.md](RELEASE.md)，上传到 Gitee / GitHub Releases 见 [PUBLISH.md](PUBLISH.md)。
 
 ## 开源协议
 

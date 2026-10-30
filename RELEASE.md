@@ -105,4 +105,5 @@ ABI 取值：`arm64-v8a`、`armeabi-v7a`、`x86`、`x86_64`。
 - [ ] 隐私政策的公网 URL（可放 GitHub Pages / Gitee Pages，内容用 `PRIVACY.md`）
 - [ ] 商店截图、512 图标、应用描述
 - [ ] 真机验收（尤其 CSV 导出，模拟器上系统文件选择器点不稳）
-- [ ] 决定分发渠道（应用商店 / Gitee Releases / GitHub Releases）
+- [ ] 建 Gitee / GitHub 空仓库并关联 remote（步骤见 [PUBLISH.md](PUBLISH.md)）
+- [ ] 配 `GITEE_TOKEN` / `GITHUB_TOKEN` 后跑 `scripts/publish.ps1`
