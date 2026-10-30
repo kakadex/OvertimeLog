@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 界面全部由 Compose 绘制，这里的主题只决定窗口背景和状态栏样式 -->
+    <style name="Theme.OvertimeLog" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>

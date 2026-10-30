@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 深色模式下用深色窗口底色，避免启动瞬间闪白 -->
+    <style name="Theme.OvertimeLog" parent="android:Theme.Material.NoActionBar" />
+</resources>

@@ -1,0 +1,25 @@
+# Gradle
+.gradle/
+build/
+.kotlin/
+
+# 本机配置（含绝对路径，不进仓库）
+local.properties
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.DS_Store
+captures/
+
+# 签名相关：一律不进仓库
+*.jks
+*.keystore
+key.properties
+signing.properties
+
+# 原生构建产物
+.cxx/
+.externalNativeBuild/
