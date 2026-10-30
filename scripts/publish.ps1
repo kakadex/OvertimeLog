@@ -148,24 +148,42 @@ if ($Provider -eq 'gitee') {
     $headers['X-GitHub-Api-Version'] = '2022-11-28'
 }
 
+# Gitee 会把 UTF-8 请求体按 Latin-1 解析，导致中文变乱码；
+# 把非 ASCII 字符转成 \uXXXX 后，任何 JSON 解析器都会还原成正确字符。
+function Convert-ToAsciiJson([string]$json) {
+    $sb = New-Object System.Text.StringBuilder
+    foreach ($ch in $json.ToCharArray()) {
+        if ([int]$ch -le 127) { [void]$sb.Append($ch) }
+        else { [void]$sb.Append(('\u{0:x4}' -f [int]$ch)) }
+    }
+    return $sb.ToString()
+}
+
 function Invoke-Api {
     param([string]$Method, [string]$Url, $Body)
     $params = @{ Method = $Method; Uri = $Url; Headers = $headers; ErrorAction = 'Stop' }
     if ($Body) {
-        $params['Body'] = ($Body | ConvertTo-Json -Depth 6 -Compress)
+        $json = Convert-ToAsciiJson ($Body | ConvertTo-Json -Depth 6 -Compress)
+        # 必须发 UTF-8 字节，否则中文说明在 Gitee / GitHub 上会乱码
+        $params['Body'] = [Text.Encoding]::UTF8.GetBytes($json)
         $params['ContentType'] = 'application/json; charset=utf-8'
     }
     return Invoke-RestMethod @params
 }
 
 function Get-ExistingRelease {
-    if ($Provider -eq 'gitee') {
-        try { return Invoke-Api -Method 'Get' -Url "$apiBase/repos/$Repo/releases/tags/${Tag}?access_token=$Token" }
-        catch { return $null }
-    } else {
-        try { return Invoke-Api -Method 'Get' -Url "$apiBase/repos/$Repo/releases/tags/$Tag" }
-        catch { return $null }
+    try {
+        $found = if ($Provider -eq 'gitee') {
+            Invoke-Api -Method 'Get' -Url "$apiBase/repos/$Repo/releases/tags/${Tag}?access_token=$Token"
+        } else {
+            Invoke-Api -Method 'Get' -Url "$apiBase/repos/$Repo/releases/tags/$Tag"
+        }
+    } catch {
+        return $null
     }
+    # Gitee 在 tag 没有对应 Release 时返回字符串 "null"，不能当对象用
+    if ($found -and $found -isnot [string] -and $found.id) { return $found }
+    return $null
 }
 
 function New-Release {
@@ -185,6 +203,13 @@ function New-Release {
     }
 }
 
+function Update-Release($release, [string]$notes) {
+    # Gitee 的 PATCH 校验要求带上 tag_name
+    $payload = @{ name = "加班记 $Tag"; body = $notes; tag_name = $Tag }
+    if ($Provider -eq 'gitee') { $payload['access_token'] = $Token }
+    Invoke-Api -Method 'Patch' -Url "$apiBase/repos/$Repo/releases/$($release.id)" -Body $payload | Out-Null
+}
+
 function Get-ExistingAssetNames($release) {
     if ($Provider -eq 'gitee') {
         $detail = Invoke-Api -Method 'Get' -Url "$apiBase/repos/$Repo/releases/$($release.id)?access_token=$Token"
@@ -199,14 +224,26 @@ function Get-ExistingAssetNames($release) {
 function Send-Asset([string]$path, $release) {
     $name = Split-Path $path -Leaf
     if ($Provider -eq 'gitee') {
+        # Gitee 是 multipart 上传，PowerShell 5.1 没有 -Form，用 curl
         $url = "$apiBase/repos/$Repo/releases/$($release.id)/attach_files"
         $out = & curl.exe -s -X POST $url -F "access_token=$Token" -F "file=@$path"
+        if ($LASTEXITCODE -ne 0) { Fail "上传失败：$name" }
+        if ($out -match '"message"\s*:\s*"([^"]+)"') { Fail "上传失败：$name — $($Matches[1])" }
     } else {
+        # GitHub 用 REST + -InFile（本机 curl 访问 api.github.com 不通，但 PowerShell 可以）
         $url = "https://uploads.github.com/repos/$Repo/releases/$($release.id)/assets?name=$name"
-        $out = & curl.exe -s -X POST $url -H "Authorization: Bearer $Token" -H "Content-Type: application/octet-stream" --data-binary "@$path"
+        $uploadHeaders = @{
+            Authorization = "Bearer $Token"
+            Accept        = 'application/vnd.github+json'
+            'User-Agent'  = 'OvertimeLog-Release'
+        }
+        try {
+            Invoke-RestMethod -Uri $url -Method Post -Headers $uploadHeaders -InFile $path `
+                -ContentType 'application/octet-stream' -TimeoutSec 300 | Out-Null
+        } catch {
+            Fail "上传失败：$name — $($_.Exception.Message)"
+        }
     }
-    if ($LASTEXITCODE -ne 0) { Fail "上传失败：$name" }
-    if ($out -match '"message"\s*:\s*"([^"]+)"') { Fail "上传失败：$name — $($Matches[1])" }
     Write-Host "    OK $name"
 }
 
@@ -214,7 +251,8 @@ function Send-Asset([string]$path, $release) {
 Write-Step '创建 / 复用 Release'
 $release = Get-ExistingRelease
 if ($release) {
-    Write-Host "    已存在，复用 id=$($release.id)"
+    Write-Host "    已存在，复用 id=$($release.id)，并同步发布说明"
+    Update-Release $release $notes
 } else {
     $release = New-Release
     Write-Host "    已创建 id=$($release.id)"

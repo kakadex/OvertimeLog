@@ -104,3 +104,11 @@ Gitee 暂无对应官方 Actions，走本地 `publish.ps1`。
 - [ ] 手机浏览器点 `android-arm64-v8a.apk` 能下载并安装
 - [ ] `latest.txt` 里的 `apk` 地址可访问
 - [ ] 已安装旧版的手机覆盖升级成功、数据保留
+
+## 七、两个已踩过的坑（写给以后的自己）
+
+1. **新建仓库可能被平台自动初始化**：GitHub 建仓若带了 README / LICENSE，首次推送会被拒。
+   本项目用 `git push --force-with-lease=refs/heads/main:<远程SHA>` 覆盖了自动生成的初始提交。
+   如果重来一次，建仓时不要勾选任何初始化文件。
+2. **Gitee 的 JSON 响应不带 charset**：PowerShell 直接读会显示乱码（服务端数据是好的），
+   用 `curl` 或网页确认即可。发布脚本里的请求体已把中文转成 `\uXXXX`，避免写入时再出问题。

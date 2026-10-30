@@ -4,6 +4,16 @@
 
 本项目按《加班记项目需求文档 V1.0》与《加班记 Android 架构设计文档 V1.0》落地，当前版本 **1.0.0**。以 [MIT 协议](LICENSE) 开源。
 
+## 下载
+
+| 渠道 | 地址 |
+| --- | --- |
+| Gitee Releases（国内推荐） | https://gitee.com/kakadex/overtimelog/releases/tag/v1.0.0 |
+| GitHub Releases | https://github.com/kakadex/OvertimeLog/releases/tag/v1.0.0 |
+
+不确定机型就下载 `OvertimeLog-1.0.0-android-arm64-v8a.apk`（绝大多数手机）；
+校验值见发布页的 `SHA256SUMS.txt`，`latest.txt` 提供机器可读的最新版本信息。
+
 ## 现在能做什么
 
 - 记录加班：日期、起止时间（支持跨天）、休息扣除、加班类型、备注
