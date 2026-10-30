@@ -1,5 +1,7 @@
 package com.overtimelog.ui.navigation
 
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
@@ -107,7 +109,7 @@ fun OvertimeNavHost(container: AppContainer) {
             startDestination = Routes.OVERVIEW,
             modifier = Modifier.padding(padding),
         ) {
-            composable(Routes.OVERVIEW) {
+            composable(Routes.OVERVIEW, enterTransition = { EnterTransition.None }, exitTransition = { ExitTransition.None }, popEnterTransition = { EnterTransition.None }, popExitTransition = { ExitTransition.None }) {
                 OverviewScreen(
                     container = container,
                     onAddRecord = { navController.navigate(Routes.edit()) },
@@ -117,7 +119,7 @@ fun OvertimeNavHost(container: AppContainer) {
                 )
             }
 
-            composable(Routes.RECORDS) {
+            composable(Routes.RECORDS, enterTransition = { EnterTransition.None }, exitTransition = { ExitTransition.None }, popEnterTransition = { EnterTransition.None }, popExitTransition = { ExitTransition.None }) {
                 RecordsScreen(
                     container = container,
                     onOpenRecord = { id -> navController.navigate(Routes.edit(recordId = id)) },
@@ -125,7 +127,7 @@ fun OvertimeNavHost(container: AppContainer) {
                 )
             }
 
-            composable(Routes.CALENDAR) {
+            composable(Routes.CALENDAR, enterTransition = { EnterTransition.None }, exitTransition = { ExitTransition.None }, popEnterTransition = { EnterTransition.None }, popExitTransition = { ExitTransition.None }) {
                 CalendarScreen(
                     container = container,
                     onOpenRecord = { id -> navController.navigate(Routes.edit(recordId = id)) },
@@ -133,11 +135,11 @@ fun OvertimeNavHost(container: AppContainer) {
                 )
             }
 
-            composable(Routes.STATS) {
+            composable(Routes.STATS, enterTransition = { EnterTransition.None }, exitTransition = { ExitTransition.None }, popEnterTransition = { EnterTransition.None }, popExitTransition = { ExitTransition.None }) {
                 StatsScreen(container = container)
             }
 
-            composable(Routes.SETTINGS) {
+            composable(Routes.SETTINGS, enterTransition = { EnterTransition.None }, exitTransition = { ExitTransition.None }, popEnterTransition = { EnterTransition.None }, popExitTransition = { ExitTransition.None }) {
                 SettingsScreen(
                     container = container,
                     onOpenSalaryRule = { navController.navigate(Routes.SALARY_RULE) },

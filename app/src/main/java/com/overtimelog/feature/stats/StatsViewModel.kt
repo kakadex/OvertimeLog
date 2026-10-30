@@ -88,7 +88,7 @@ class StatsViewModel(
             monthSummary = data.first,
             yearSummary = data.second,
         )
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), StatsUiState())
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(30_000), StatsUiState())
 
     fun setMode(newMode: StatsMode) {
         mode.value = newMode

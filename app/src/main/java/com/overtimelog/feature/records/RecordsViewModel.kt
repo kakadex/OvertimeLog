@@ -72,7 +72,7 @@ class RecordsViewModel(
 
     val uiState: StateFlow<RecordsUiState> = combine(filter, records) { current, list ->
         RecordsUiState(filter = current, records = list, loading = false)
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), RecordsUiState())
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(30_000), RecordsUiState())
 
     fun setMonth(month: YearMonth?) = updateFilter { it.copy(month = month) }
 

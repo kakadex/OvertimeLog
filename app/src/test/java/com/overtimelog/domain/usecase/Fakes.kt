@@ -34,6 +34,9 @@ class FakeOvertimeRepository : OvertimeRepository {
     override fun observeDayRecords(date: LocalDate): Flow<List<OvertimeRecord>> =
         flowOf(records.filter { it.date == date })
 
+    override fun observeRecentRecords(month: YearMonth, limit: Int): Flow<List<OvertimeRecord>> =
+        flowOf(records.sortedByDescending { it.start }.take(limit))
+
     override fun observeMonthSummary(month: YearMonth, settlement: SettlementStatus?): Flow<MonthlySummary> =
         flowOf(MonthlySummary(month))
 

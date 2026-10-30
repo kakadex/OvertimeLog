@@ -59,6 +59,10 @@ class RoomOvertimeRepository(
     override fun observeDayRecords(date: LocalDate): Flow<List<OvertimeRecord>> =
         recordDao.observeDay(date.toEpochDay()).map { list -> list.map { it.toDomain() } }
 
+    override fun observeRecentRecords(month: YearMonth, limit: Int): Flow<List<OvertimeRecord>> =
+        recordDao.observeRecent(month.atDay(1).toEpochDay(), month.atEndOfMonth().toEpochDay(), limit)
+            .map { list -> list.map { it.toDomain() } }
+
     override fun observeMonthSummary(month: YearMonth, settlement: SettlementStatus?): Flow<MonthlySummary> {
         val from = month.atDay(1).toEpochDay()
         val to = month.atEndOfMonth().toEpochDay()

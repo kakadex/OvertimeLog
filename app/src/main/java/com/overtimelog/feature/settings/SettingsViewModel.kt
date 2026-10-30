@@ -24,10 +24,10 @@ class SettingsViewModel(
 ) : ViewModel() {
 
     val settings: StateFlow<AppSettings> = container.settingsRepository.settings
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AppSettings())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(30_000), AppSettings())
 
     val rule: StateFlow<SalaryRule?> = container.salaryRuleRepository.observeActiveRule()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(30_000), null)
 
     private val _events = Channel<String>(Channel.BUFFERED)
     val events = _events.receiveAsFlow()

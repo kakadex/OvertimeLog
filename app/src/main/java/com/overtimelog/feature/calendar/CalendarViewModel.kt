@@ -72,7 +72,7 @@ class CalendarViewModel(
             markers = markerList.associateBy { it.day },
             dayRecords = records,
         )
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), CalendarUiState())
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(30_000), CalendarUiState())
 
     fun previousMonth() {
         val target = month.value.minusMonths(1)

@@ -70,6 +70,17 @@ interface OvertimeRecordDao {
     @Query("SELECT * FROM overtime_records WHERE date_epoch_day = :epochDay ORDER BY start_epoch_millis ASC")
     fun observeDay(epochDay: Long): Flow<List<OvertimeRecordEntity>>
 
+    /** 概览页"最近记录"只要前 N 条，别把整月都读进内存。 */
+    @Query(
+        """
+        SELECT * FROM overtime_records
+        WHERE date_epoch_day BETWEEN :from AND :to
+        ORDER BY start_epoch_millis DESC
+        LIMIT :limit
+        """,
+    )
+    fun observeRecent(from: Long, to: Long, limit: Int): Flow<List<OvertimeRecordEntity>>
+
     @Query("SELECT * FROM overtime_records WHERE id = :id")
     suspend fun getById(id: Long): OvertimeRecordEntity?
 

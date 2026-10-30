@@ -10,7 +10,7 @@ import com.overtimelog.core.model.OvertimeRecord
 import com.overtimelog.di.AppContainer
 import com.overtimelog.domain.repository.CompTimeRepository
 import com.overtimelog.domain.repository.OvertimeRepository
-import com.overtimelog.domain.repository.RecordFilter
+
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -45,17 +45,17 @@ class OverviewViewModel(
     val uiState: StateFlow<OverviewUiState> = combine(
         month.flatMapLatest { overtimeRepository.observeMonthSummary(it) },
         compTimeRepository.observeBalance(),
-        month.flatMapLatest { overtimeRepository.observeRecords(RecordFilter(month = it)) },
+        month.flatMapLatest { overtimeRepository.observeRecentRecords(it, 3) },
         month,
     ) { summary, balance, records, currentMonth ->
         OverviewUiState(
             month = currentMonth,
             summary = summary,
             balance = balance,
-            recent = records.take(3),
+            recent = records,
             loading = false,
         )
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), OverviewUiState())
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(30_000), OverviewUiState())
 
     fun previousMonth() {
         month.value = month.value.minusMonths(1)
