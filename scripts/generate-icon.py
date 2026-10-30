@@ -93,7 +93,7 @@ def draw_dial(draw: ImageDraw.ImageDraw, size: int, radius_ratio: float, monochr
 
     # 汉字：用实际包围盒居中。彩色版本给文字加一圈"底色描边"，
     # 让指针在文字附近被自然遮住，比再画一个圆形徽标更干净。
-    font = load_font(int(r * 0.56))
+    font = load_font(int(r * 0.84))
     bbox = draw.textbbox((0, 0), GLYPH, font=font)
     gw, gh = bbox[2] - bbox[0], bbox[3] - bbox[1]
     tx = cx - gw / 2 - bbox[0]
@@ -111,11 +111,11 @@ def draw_dial(draw: ImageDraw.ImageDraw, size: int, radius_ratio: float, monochr
         )
 
     # 右下角人民币符号「¥」：放在表盘内的右下角（自适应图标安全区内），避免被圆形裁切
-    yen_font = load_font(int(r * 0.40))
+    yen_font = load_font(int(r * 0.80))
     yen_bbox = draw.textbbox((0, 0), "¥", font=yen_font)
     yw, yh = yen_bbox[2] - yen_bbox[0], yen_bbox[3] - yen_bbox[1]
-    yx = cx + r * 0.58 - yw / 2 - yen_bbox[0]
-    yy = cy + r * 0.58 - yh / 2 - yen_bbox[1]
+    yx = cx + r * 0.50 - yw / 2 - yen_bbox[0]
+    yy = cy + r * 0.50 - yh / 2 - yen_bbox[1]
     if monochrome:
         draw.text((yx, yy), "¥", font=yen_font, fill=ink)
     else:

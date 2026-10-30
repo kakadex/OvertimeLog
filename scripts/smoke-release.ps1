@@ -44,16 +44,16 @@ if (-not $SkipBuild) {
     if (-not $env:JAVA_HOME) { $env:JAVA_HOME = 'C:\Android\env\jdk21' }
     Push-Location $repo
     try {
-        & .\gradlew.bat :app:assembleRelease -PuseDebugSigning=true --console=plain | Out-Null
+        & .\gradlew.bat :app:assembleRelease -PallowDebugSign=true --console=plain | Out-Null
         if ($LASTEXITCODE -ne 0) { Fail 'release 构建失败' }
     } finally {
         Pop-Location
     }
 }
-if (-not (Test-Path $signed)) { Fail "找不到已签名的 release 产物：$signed（构建要带 -PuseDebugSigning=true）" }
+if (-not (Test-Path $signed)) { Fail "找不到已签名的 release 产物：$signed（构建要带 -PallowDebugSign=true）" }
 
 # ---------- 2. 签名校验 ----------
-# 用 Gradle 自带的 debug 签名（-PuseDebugSigning=true），和发给用户的可安装包完全一致，
+# 用 Gradle 自带的 debug 签名（-PallowDebugSign=true），和发给用户的可安装包完全一致，
 # 不再用 apksigner 事后补签——那样签出来的包在部分国产 ROM 上装不上。
 Write-Step '签名校验'
 $apksigner = Join-Path (Get-ChildItem (Join-Path $Sdk 'build-tools') -Directory |
@@ -199,6 +199,7 @@ foreach ($expected in @('共 1 条记录', '3 小时', '¥258.62')) {
 Write-Step '统计页结算状态筛选'
 Tap-Text '统计'
 if (-not (Wait-Text '全部状态')) { Fail '统计页没有结算状态筛选项' }
+if (-not (Wait-Text '本月结算状态')) { Fail '统计页缺少一键结算入口' }
 Tap-Text '概览'
 if (-not (Wait-Text '本月概览')) { Fail '从统计页返回概览失败' }
 

@@ -2,7 +2,7 @@
 
 一个 Android 端的个人加班记录与加班费估算工具：离线优先、数据只存本机、计算规则可配置。
 
-本项目按《加班记项目需求文档 V1.0》与《加班记 Android 架构设计文档 V1.0》落地，当前版本 **0.1.0（MVP 开发中）**。
+本项目按《加班记项目需求文档 V1.0》与《加班记 Android 架构设计文档 V1.0》落地，当前版本 **1.0.0**。以 [MIT 协议](LICENSE) 开源。
 
 ## 现在能做什么
 
@@ -12,7 +12,7 @@
 - 记录列表：按月 / 类型 / 结算状态筛选，备注搜索，删除二次确认 + 撤销，单条切换结算状态
 - 首页概览：本月总时长、预计加班费、已结算 / 未结算、加班天数、调休余额、最近记录
 - 日历：月历按加班类型打点，点某天看明细或补录
-- 统计：月度合计与按类型拆分、年度 12 个月柱状图与逐月明细，支持按结算状态（全部 / 未结算 / 已结算）筛选
+- 统计：月度合计与按类型拆分、年度 12 个月柱状图与逐月明细，支持按结算状态（全部 / 未结算 / 已结算）筛选，并可一键把整月记录统一标记为已结算 / 未结算
 - 调休：余额、使用记录、新增 / 删除（余额不足会先提示再确认）
 - 设置：薪资规则（月薪 / 时薪、计薪天数、日工时、各类型倍率）、录入默认值（默认上下班时间、默认休息扣除、休息扣除单位「小时 / 分钟」）、主题、导出 CSV、清除数据、隐私说明
 - 规则快照：每条记录保存当时的规则与算出的时薪 / 倍率，改规则不会悄悄改历史金额
@@ -39,6 +39,7 @@
 | 异步 | Coroutines + Flow |
 | 构建 | Gradle 9.3.1 + AGP 9.1 + Version Catalog，minSdk 26 / targetSdk 37 |
 | 测试 | JUnit 4（引擎与用例）、kotlinx-coroutines-test |
+| 协议 | MIT |
 
 ## 项目结构
 
@@ -46,6 +47,7 @@
 app/                      Android 应用：组装、导航、页面、数据实现
 core/model/               领域模型（纯 Kotlin/JVM）
 core/calculation/         计算引擎（纯 Kotlin/JVM，不依赖 Android）
+scripts/                  版本号、打包、发布冒烟脚本
 docs/                     实现说明、数据库设计
 ```
 
@@ -117,3 +119,32 @@ R8 万一裁错了类，用这一条先关掉压缩定位问题（不改代码�
 所有数据只保存在本机应用私有目录，应用不申请网络权限；CSV 导出通过系统文件选择器（SAF）完成，不申请存储权限。详见 [PRIVACY.md](PRIVACY.md)。
 
 加班费仅为个人参考估算，不代表公司实际结算，也不构成劳动法依据。
+
+
+## 版本与发布
+
+版本规则与 MusicOrganizer 保持一致：
+
+| 项 | 规则 |
+| --- | --- |
+| `VERSION` | X.Y.Z，第二、三段 0–99，满 100 进位；唯一真源 |
+| `BUILD_NUMBER` | 单调递增的 `versionCode` |
+| 发版 tag | `vX.Y.Z` |
+| APK / AAB 命名 | `OvertimeLog-<版本>-android-<abi>.apk`、`OvertimeLog-<版本>.aab` |
+| 分发包 | `dist/` 下同时生成 `SHA256SUMS.txt`、`latest.txt`、`README.txt`、混淆映射 |
+
+```powershell
+# 改版本（build 自动 +1）
+powershell -ExecutionPolicy Bypass -File .\scripts\set-version.ps1 1.0.1
+
+# 出正式包（校验签名 → 单测 → ABI 拆分 → 校验 → 清单）
+powershell -ExecutionPolicy Bypass -File .\scripts\release.ps1
+```
+
+正式包必须用正式 keystore 签名，配置方法见 [SECRETS-SETUP.md](SECRETS-SETUP.md)，发版步骤见 [RELEASE.md](RELEASE.md)。
+
+## 开源协议
+
+[MIT](LICENSE) © 2026 kakadex。
+
+应用内「设置 → 开源许可」也可以在手机上查看协议正文。

@@ -124,6 +124,14 @@ class RoomOvertimeRepository(
         recordDao.updateSettlement(ids, status.code, System.currentTimeMillis())
     }
 
+    override suspend fun markMonthSettled(month: YearMonth, status: SettlementStatus): Int =
+        recordDao.updateSettlementInRange(
+            from = month.atDay(1).toEpochDay(),
+            to = month.atEndOfMonth().toEpochDay(),
+            status = status.code,
+            now = System.currentTimeMillis(),
+        )
+
     override suspend fun clearAll() = recordDao.deleteAll()
 
     private fun TypeSummaryRow.toTypeSummary(): TypeSummary = TypeSummary(

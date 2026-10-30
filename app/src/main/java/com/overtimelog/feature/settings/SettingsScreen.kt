@@ -45,6 +45,7 @@ import com.overtimelog.core.model.OvertimeType
 import com.overtimelog.core.model.SalaryMode
 import com.overtimelog.data.settings.BreakUnit
 import com.overtimelog.data.settings.ThemeMode
+import com.overtimelog.BuildConfig
 import com.overtimelog.di.AppContainer
 import com.overtimelog.ui.common.BreakTime
 import com.overtimelog.ui.common.DateTexts
@@ -66,6 +67,7 @@ fun SettingsScreen(
     container: AppContainer,
     onOpenSalaryRule: () -> Unit,
     onOpenPrivacy: () -> Unit,
+    onOpenLicense: () -> Unit = {},
 ) {
     val viewModel: SettingsViewModel = viewModel(factory = SettingsViewModel.factory(container))
     val settings by viewModel.settings.collectAsStateWithLifecycle()
@@ -290,7 +292,8 @@ fun SettingsScreen(
                         )
                         Spacer(Modifier.height(6.dp))
                         TextButton(onClick = onOpenPrivacy) { Text("查看隐私说明") }
-                        InfoRow("版本", "0.1.0（MVP）")
+                        TextButton(onClick = onOpenLicense) { Text("开源许可（MIT）") }
+                        InfoRow("版本", "${BuildConfig.VERSION_NAME}（build ${BuildConfig.VERSION_CODE}）")
                     }
                 }
             }

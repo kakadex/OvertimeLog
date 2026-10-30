@@ -6,6 +6,7 @@ import com.overtimelog.core.model.DomainError
 import com.overtimelog.core.model.OvertimeType
 import com.overtimelog.core.model.SalaryMode
 import com.overtimelog.core.model.SalaryRule
+import com.overtimelog.core.model.SettlementStatus
 import com.overtimelog.domain.model.OvertimeDraft
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -163,6 +164,31 @@ class RecordUseCasesTest {
         RestoreOvertimeRecordUseCase(records)(deleted).getOrThrow()
         assertEquals(1, records.records.size)
         assertNotNull(records.records.first().id)
+    }
+
+    @Test
+    fun `mark whole month settled only touches different rows`() = runTest {
+        val records = FakeOvertimeRepository()
+        val rules = FakeSalaryRuleRepository(rule)
+        val add = addUseCase(records, rules)
+
+        add(draft()).getOrThrow()
+        add(draft()).getOrThrow()
+        // 先把一条标成已结算，验证批量操作只改真正需要改的那一条
+        val first = records.records.first()
+        records.records[0] = first.copy(settlementStatus = SettlementStatus.SETTLED)
+
+        val month = java.time.YearMonth.of(2026, 10)
+        val mark = MarkMonthSettledUseCase(records)
+        assertEquals(1, mark(month, settled = true).getOrThrow())
+        assertEquals(2, records.records.count { it.settlementStatus == SettlementStatus.SETTLED })
+
+        // 再来一次：都已经是已结算，应该改动 0 条
+        assertEquals(0, mark(month, settled = true).getOrThrow())
+
+        // 全部改回未结算
+        assertEquals(2, mark(month, settled = false).getOrThrow())
+        assertEquals(2, records.records.count { it.settlementStatus == SettlementStatus.UNSETTLED })
     }
 
     @Test

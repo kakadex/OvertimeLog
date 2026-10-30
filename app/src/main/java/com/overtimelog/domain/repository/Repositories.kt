@@ -43,6 +43,9 @@ interface OvertimeRepository {
     suspend fun delete(id: Long)
     suspend fun getAllInRange(from: LocalDate, to: LocalDate): List<OvertimeRecord>
     suspend fun markSettled(ids: List<Long>, status: SettlementStatus)
+
+    /** 整月统一改结算状态，返回实际改动条数。 */
+    suspend fun markMonthSettled(month: YearMonth, status: SettlementStatus): Int
     suspend fun clearAll()
 }
 

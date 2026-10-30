@@ -20,6 +20,7 @@ import com.overtimelog.domain.usecase.ClearAllDataUseCase
 import com.overtimelog.domain.usecase.DeleteCompTimeUsageUseCase
 import com.overtimelog.domain.usecase.DeleteOvertimeRecordUseCase
 import com.overtimelog.domain.usecase.ExportCsvUseCase
+import com.overtimelog.domain.usecase.MarkMonthSettledUseCase
 import com.overtimelog.domain.usecase.MarkRecordsSettledUseCase
 import com.overtimelog.domain.usecase.RestoreOvertimeRecordUseCase
 import com.overtimelog.domain.usecase.UpdateOvertimeRecordUseCase
@@ -75,6 +76,9 @@ class AppContainer(context: Context) {
     }
     val markSettled: MarkRecordsSettledUseCase by lazy {
         MarkRecordsSettledUseCase(overtimeRepository)
+    }
+    val markMonthSettled: MarkMonthSettledUseCase by lazy {
+        MarkMonthSettledUseCase(overtimeRepository)
     }
     val clearAllData: ClearAllDataUseCase by lazy {
         ClearAllDataUseCase(overtimeRepository, compTimeRepository)

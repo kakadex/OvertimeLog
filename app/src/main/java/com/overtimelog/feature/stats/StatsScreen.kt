@@ -16,13 +16,21 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -37,6 +45,7 @@ import com.overtimelog.ui.common.DateTexts
 import com.overtimelog.ui.common.Durations
 import com.overtimelog.ui.common.Money
 import com.overtimelog.ui.common.label
+import com.overtimelog.ui.components.ConfirmDialog
 import com.overtimelog.ui.components.EmptyState
 import com.overtimelog.ui.components.InfoRow
 import com.overtimelog.ui.components.MonthSwitcher
@@ -54,8 +63,18 @@ import java.time.YearMonth
 fun StatsScreen(container: AppContainer) {
     val viewModel: StatsViewModel = viewModel(factory = StatsViewModel.factory(container))
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
+    // null = 没有待确认操作；true = 待标记全部已结算；false = 待标记全部未结算
+    var pendingSettled by remember { mutableStateOf<Boolean?>(null) }
 
-    Scaffold(topBar = { TopAppBar(title = { Text("统计") }) }) { padding ->
+    LaunchedEffect(Unit) {
+        viewModel.events.collect { message -> snackbarHostState.showSnackbar(message) }
+    }
+
+    Scaffold(
+        topBar = { TopAppBar(title = { Text("统计") }) },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+    ) { padding ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
@@ -116,17 +135,31 @@ fun StatsScreen(container: AppContainer) {
             }
 
             if (state.mode == StatsMode.MONTH) {
-                monthContent(state.monthSummary, state.settlement)
+                monthContent(state.monthSummary, state.settlement) { settled -> pendingSettled = settled }
             } else {
                 yearContent(state.yearSummary)
             }
         }
+    }
+
+    pendingSettled?.let { settled ->
+        ConfirmDialog(
+            title = if (settled) "把本月记录全部标记为已结算？" else "把本月记录全部标记为未结算？",
+            text = "会一次性修改 ${DateTexts.month(state.month)} 的所有加班记录，包括已经单独标记过的。",
+            confirmText = if (settled) "全部已结算" else "全部未结算",
+            onConfirm = {
+                pendingSettled = null
+                viewModel.markMonthSettled(settled)
+            },
+            onDismiss = { pendingSettled = null },
+        )
     }
 }
 
 private fun androidx.compose.foundation.lazy.LazyListScope.monthContent(
     summary: MonthlySummary,
     settlement: SettlementStatus?,
+    onMarkSettled: (Boolean) -> Unit,
 ) {
     item {
         SectionCard(title = "本月合计") {
@@ -163,6 +196,30 @@ private fun androidx.compose.foundation.lazy.LazyListScope.monthContent(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp))
+                Text("本月结算状态", style = MaterialTheme.typography.bodyMedium)
+                Spacer(Modifier.height(6.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(
+                        onClick = { onMarkSettled(false) },
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text("全部未结算")
+                    }
+                    OutlinedButton(
+                        onClick = { onMarkSettled(true) },
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text("全部已结算")
+                    }
+                }
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = "点一下会把本月的全部记录统一改掉（包括已单独标记过的）。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
     }

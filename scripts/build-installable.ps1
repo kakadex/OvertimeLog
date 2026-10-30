@@ -26,7 +26,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
-$dist = Join-Path $repo 'dist'
+$dist = Join-Path $repo 'dist\test'
 $buildTools = Get-ChildItem (Join-Path $Sdk 'build-tools') -Directory |
     Sort-Object { [version](($_.Name -replace '[^0-9.]', '')) } -Descending |
     Select-Object -First 1
@@ -44,7 +44,7 @@ New-Item -ItemType Directory -Force -Path $dist | Out-Null
 $gradleArgs = @()
 if ($Variant -eq 'release') {
     # 关键：让 AGP 直接签名，而不是事后用 apksigner 补签
-    $gradleArgs += '-PuseDebugSigning=true'
+    $gradleArgs += '-PallowDebugSign=true'
     if ($NoR8) { $gradleArgs += '-PdisableR8=true' }
 }
 
@@ -64,7 +64,7 @@ $source = if ($Variant -eq 'release') {
     Join-Path $repo 'app\build\outputs\apk\debug\app-debug.apk'
 }
 if (-not (Test-Path $source)) {
-    Fail "找不到已签名产物：$source（release 必须带 -PuseDebugSigning=true 才会生成 app-release.apk）"
+    Fail "找不到已签名产物：$source（release 必须带 -PallowDebugSign=true 才会生成 app-release.apk）"
 }
 
 $badging = (& $aapt2 dump badging $source) -join "`n"

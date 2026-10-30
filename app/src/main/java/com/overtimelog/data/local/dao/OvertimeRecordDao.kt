@@ -163,6 +163,17 @@ interface OvertimeRecordDao {
     @Query("UPDATE overtime_records SET settlement_status = :status, updated_at = :now WHERE id IN (:ids)")
     suspend fun updateSettlement(ids: List<Long>, status: String, now: Long)
 
+    /** 整月批量改结算状态：只改状态不同的行，返回实际改动条数。 */
+    @Query(
+        """
+        UPDATE overtime_records
+        SET settlement_status = :status, updated_at = :now
+        WHERE date_epoch_day BETWEEN :from AND :to
+          AND settlement_status != :status
+        """,
+    )
+    suspend fun updateSettlementInRange(from: Long, to: Long, status: String, now: Long): Int
+
     @Query("DELETE FROM overtime_records")
     suspend fun deleteAll()
 }

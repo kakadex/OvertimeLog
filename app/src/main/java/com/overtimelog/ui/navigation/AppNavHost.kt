@@ -29,6 +29,7 @@ import com.overtimelog.feature.comptime.CompTimeScreen
 import com.overtimelog.feature.overview.OverviewScreen
 import com.overtimelog.feature.records.RecordEditScreen
 import com.overtimelog.feature.records.RecordsScreen
+import com.overtimelog.feature.settings.LicenseScreen
 import com.overtimelog.feature.settings.PrivacyScreen
 import com.overtimelog.feature.settings.SalaryRuleScreen
 import com.overtimelog.feature.settings.SettingsScreen
@@ -45,6 +46,7 @@ object Routes {
     const val COMP_TIME = "comptime"
     const val SALARY_RULE = "salary"
     const val PRIVACY = "privacy"
+    const val LICENSE = "license"
 
     /** recordId 为空表示新增；date 用于"从日历某天新增"。 */
     const val EDIT = "edit?recordId={recordId}&date={date}"
@@ -140,6 +142,7 @@ fun OvertimeNavHost(container: AppContainer) {
                     container = container,
                     onOpenSalaryRule = { navController.navigate(Routes.SALARY_RULE) },
                     onOpenPrivacy = { navController.navigate(Routes.PRIVACY) },
+                    onOpenLicense = { navController.navigate(Routes.LICENSE) },
                 )
             }
 
@@ -153,6 +156,10 @@ fun OvertimeNavHost(container: AppContainer) {
 
             composable(Routes.PRIVACY) {
                 PrivacyScreen(onBack = { navController.popBackStack() })
+            }
+
+            composable(Routes.LICENSE) {
+                LicenseScreen(onBack = { navController.popBackStack() })
             }
 
             composable(

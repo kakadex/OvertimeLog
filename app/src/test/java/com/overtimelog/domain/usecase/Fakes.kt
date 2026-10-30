@@ -34,10 +34,11 @@ class FakeOvertimeRepository : OvertimeRepository {
     override fun observeDayRecords(date: LocalDate): Flow<List<OvertimeRecord>> =
         flowOf(records.filter { it.date == date })
 
-    override fun observeMonthSummary(month: YearMonth): Flow<MonthlySummary> =
+    override fun observeMonthSummary(month: YearMonth, settlement: SettlementStatus?): Flow<MonthlySummary> =
         flowOf(MonthlySummary(month))
 
-    override fun observeYearSummary(year: Int): Flow<YearSummary> = flowOf(YearSummary(year))
+    override fun observeYearSummary(year: Int, settlement: SettlementStatus?): Flow<YearSummary> =
+        flowOf(YearSummary(year))
 
     override fun observeDayMarkers(month: YearMonth): Flow<List<DayMarker>> = flowOf(emptyList())
 
@@ -63,6 +64,20 @@ class FakeOvertimeRepository : OvertimeRepository {
 
     override suspend fun markSettled(ids: List<Long>, status: SettlementStatus) {
         records.replaceAll { if (it.id in ids) it.copy(settlementStatus = status) else it }
+    }
+
+    override suspend fun markMonthSettled(month: YearMonth, status: SettlementStatus): Int {
+        var changed = 0
+        records.replaceAll { record ->
+            val sameMonth = record.date.year == month.year && record.date.month == month.month
+            if (sameMonth && record.settlementStatus != status) {
+                changed++
+                record.copy(settlementStatus = status)
+            } else {
+                record
+            }
+        }
+        return changed
     }
 
     override suspend fun clearAll() = records.clear()
