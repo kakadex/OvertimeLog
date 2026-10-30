@@ -1,18 +1,23 @@
 name: release
 
-# 手动触发：在 Actions 页面点 Run workflow，填入已存在的 tag（例如 v1.0.0）。
-# 只做 GitHub Releases；Gitee 用本地 scripts/publish.ps1。
+# 手动触发：Actions → release → Run workflow
+#   tag     ：要发布的 tag，必须等于 v<VERSION>
+#   publish ：勾选才会创建/更新 GitHub Release；不勾只构建并归档产物（演练用）
 #
-# 需要的 repository secrets（见 SECRETS-SETUP.md）：
+# 需要的 repository secrets：
 #   ANDROID_KEYSTORE_BASE64 / ANDROID_STORE_PASSWORD / ANDROID_KEY_PASSWORD
-# 没配签名 secrets 时直接失败，不会产出调试签名的包。
+# 没配签名 secrets 时直接失败，不会产出 debug 签名的包。
 
 on:
   workflow_dispatch:
     inputs:
       tag:
-        description: '要发布的 tag（必须已存在，如 v1.0.0）'
+        description: '要发布的 tag（如 v1.0.0，必须与 VERSION 一致）'
         required: true
+      publish:
+        description: '勾选后创建/更新 Release（不勾只构建并上传 artifact）'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -40,7 +45,20 @@ jobs:
             exit 1
           fi
           git fetch --tags --force
-          git rev-parse -q --verify "refs/tags/${{ inputs.tag }}" >/dev/null || { echo "::error::远程不存在该 tag"; exit 1; }
+          git rev-parse -q --verify "refs/tags/${{ inputs.tag }}" >/dev/null || { echo "::error::仓库不存在该 tag"; exit 1; }
+
+      - name: Ensure Android SDK 37
+        run: |
+          set -e
+          SDK="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          if [ -d "$SDK/platforms/android-37" ]; then
+            echo "SDK 37 已存在"
+            exit 0
+          fi
+          if command -v sdkmanager >/dev/null 2>&1; then
+            yes | sdkmanager "platforms;android-37" "build-tools;37.0.0" >/dev/null || true
+          fi
+          ls "$SDK/platforms" | tail -3
 
       - name: Configure release signing
         env:
@@ -62,7 +80,9 @@ jobs:
           } > signing.properties
 
       - name: Tests
-        run: ./gradlew :app:testDebugUnitTest :core:calculation:test --console=plain
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:testDebugUnitTest :core:calculation:test --console=plain
 
       - name: Build release (R8 + ABI splits + AAB)
         run: ./gradlew :app:assembleRelease :app:bundleRelease -PabiSplits=true --console=plain
@@ -71,17 +91,57 @@ jobs:
         run: |
           set -e
           VERSION=$(cat VERSION)
+          TAG="${{ inputs.tag }}"
+          REPO="${{ github.repository }}"
           mkdir -p out
           for f in app/build/outputs/apk/release/app-*-release.apk; do
             abi=$(basename "$f" | sed 's/^app-//; s/-release\.apk$//')
             cp "$f" "out/OvertimeLog-$VERSION-android-$abi.apk"
           done
           cp "app/build/outputs/bundle/release/app-release.aab" "out/OvertimeLog-$VERSION.aab"
-          cp app/build/outputs/mapping/release/mapping.txt "out/OvertimeLog-$VERSION-mapping.txt" || true
-          (cd out && sha256sum OvertimeLog-* > SHA256SUMS.txt)
+
+          ARM64="out/OvertimeLog-$VERSION-android-arm64-v8a.apk"
+          {
+            echo "version=$VERSION"
+            echo "tag=$TAG"
+            echo "page=https://github.com/$REPO/releases/tag/$TAG"
+            echo "apk=https://github.com/$REPO/releases/download/$TAG/$(basename "$ARM64")"
+            echo "size=$(stat -c%s "$ARM64")"
+            echo "sha256=$(sha256sum "$ARM64" | cut -d' ' -f1)"
+            echo "prefer=github"
+          } > out/latest.txt
+
+          cat > out/README.txt <<EOF
+          加班记 OvertimeLog v$VERSION 分发包
+
+          版本：$VERSION
+          tag：$TAG
+          说明：官方发布以 Releases 页面为准。
+
+          安装：Android 8.0（API 26）及以上，允许「未知来源」后安装对应 ABI 的 APK。
+          不确定机型就装 android-arm64-v8a；上架应用商店使用 .aab。
+          本包使用正式签名，后续版本可直接覆盖升级。
+          EOF
+
+          (cd out && sha256sum OvertimeLog-* latest.txt README.txt > SHA256SUMS.txt)
           ls -l out
 
-      - name: Create GitHub Release
+      - name: Archive build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: overtimelog-${{ inputs.tag }}
+          path: out/*
+          retention-days: 14
+
+      - name: Archive R8 mapping
+        uses: actions/upload-artifact@v4
+        with:
+          name: overtimelog-mapping-${{ inputs.tag }}
+          path: app/build/outputs/mapping/release/mapping.txt
+          retention-days: 90
+
+      - name: Create / update GitHub Release
+        if: ${{ inputs.publish }}
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ inputs.tag }}
