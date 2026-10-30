@@ -33,6 +33,14 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+
+            // 仅用于"自己装到手机测试"：让 Gradle 直接用本机 debug 证书给 release 签名，
+            // 产出的签名方式和 debug 包一致（v1+v2，由 AGP 完成），部分国产 ROM 的安装器只认这种。
+            //   ./gradlew :app:assembleRelease -PuseDebugSigning=true
+            // 正式发布必须换成自己的发布证书，绝对不要用它上架。
+            if ((findProperty("useDebugSigning") as String?)?.toBoolean() == true) {
+                signingConfig = signingConfigs.getByName("debug")
+            }
         }
     }
 
