@@ -28,8 +28,7 @@ $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
 $adb = Join-Path $Sdk 'platform-tools\adb.exe'
 $emulator = Join-Path $Sdk 'emulator\emulator.exe'
-$unsigned = Join-Path $repo 'app\build\outputs\apk\release\app-release-unsigned.apk'
-$signed = Join-Path $repo 'app\build\outputs\apk\release\app-release-smoke.apk'
+$signed = Join-Path $repo 'app\build\outputs\apk\release\app-release.apk'
 $dbFile = Join-Path $env:TEMP 'overtimelog-smoke.db'
 $dbWal = Join-Path $env:TEMP 'overtimelog-smoke.db-wal'
 
@@ -45,25 +44,24 @@ if (-not $SkipBuild) {
     if (-not $env:JAVA_HOME) { $env:JAVA_HOME = 'C:\Android\env\jdk21' }
     Push-Location $repo
     try {
-        & .\gradlew.bat :app:assembleRelease --console=plain | Out-Null
+        & .\gradlew.bat :app:assembleRelease -PuseDebugSigning=true --console=plain | Out-Null
         if ($LASTEXITCODE -ne 0) { Fail 'release 构建失败' }
     } finally {
         Pop-Location
     }
 }
-if (-not (Test-Path $unsigned)) { Fail "找不到 release 产物：$unsigned" }
+if (-not (Test-Path $signed)) { Fail "找不到已签名的 release 产物：$signed（构建要带 -PuseDebugSigning=true）" }
 
-# ---------- 2. 测试签名 ----------
-Write-Step '用 debug 证书签名（仅供测试）'
-$buildTools = Get-ChildItem (Join-Path $Sdk 'build-tools') -Directory |
+# ---------- 2. 签名校验 ----------
+# 用 Gradle 自带的 debug 签名（-PuseDebugSigning=true），和发给用户的可安装包完全一致，
+# 不再用 apksigner 事后补签——那样签出来的包在部分国产 ROM 上装不上。
+Write-Step '签名校验'
+$apksigner = Join-Path (Get-ChildItem (Join-Path $Sdk 'build-tools') -Directory |
     Sort-Object { [version](($_.Name -replace '[^0-9.]', '')) } -Descending |
-    Select-Object -First 1
-$apksigner = Join-Path $buildTools.FullName 'apksigner.bat'
-& $apksigner sign --ks "$env:USERPROFILE\.android\debug.keystore" --ks-pass pass:android `
-    --key-pass pass:android --ks-key-alias androiddebugkey --out $signed $unsigned | Out-Null
-if ($LASTEXITCODE -ne 0) { Fail '签名失败' }
+    Select-Object -First 1).FullName 'apksigner.bat'
+$verify = & $apksigner verify $signed 2>&1
+if ($LASTEXITCODE -ne 0) { Fail "签名校验失败：$verify" }
 Write-Host ("    包体积：{0:N2} MB" -f ((Get-Item $signed).Length / 1MB))
-
 # ---------- 3. 设备 ----------
 Write-Step '检查模拟器'
 $running = (& $adb devices) -match 'emulator-\d+\s+device'
