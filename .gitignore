@@ -23,3 +23,6 @@ signing.properties
 # 原生构建产物
 .cxx/
 .externalNativeBuild/
+
+# 打好的安装包不进仓库（dist/ 由 scripts/build-installable.ps1 生成）
+dist/
