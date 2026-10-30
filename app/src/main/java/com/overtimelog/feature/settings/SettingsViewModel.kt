@@ -36,6 +36,14 @@ class SettingsViewModel(
         viewModelScope.launch { container.settingsRepository.setDefaultBreakMinutes(minutes) }
     }
 
+    fun setBreakUnit(unit: com.overtimelog.data.settings.BreakUnit) {
+        viewModelScope.launch { container.settingsRepository.setBreakUnit(unit) }
+    }
+
+    fun setDefaultTimes(start: java.time.LocalTime, end: java.time.LocalTime) {
+        viewModelScope.launch { container.settingsRepository.setDefaultTimes(start, end) }
+    }
+
     fun setDefaultType(type: com.overtimelog.core.model.OvertimeType) {
         viewModelScope.launch { container.settingsRepository.setDefaultOvertimeType(type) }
     }

@@ -26,6 +26,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -65,6 +67,9 @@ fun OverviewScreen(
         floatingActionButton = {
             ExtendedFloatingActionButton(
                 onClick = onAddRecord,
+                // 显式给无障碍描述：读屏能念出"记一笔"，自动化冒烟脚本也能稳定找到这个按钮
+                // （Compose 的 FAB 文字默认不一定出现在语义树里）。
+                modifier = Modifier.semantics { contentDescription = "记一笔" },
                 icon = { Icon(Icons.Default.Add, contentDescription = null) },
                 text = { Text("记一笔") },
             )

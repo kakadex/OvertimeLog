@@ -21,11 +21,14 @@ android {
 
     buildTypes {
         release {
-            // 开启 R8 代码压缩 + 资源裁剪。实测：debug 13.3 MB -> release 1.8 MB。
-            // 以后接入反射或 kotlinx.serialization（比如备份 JSON）时，要在 proguard-rules.pro 补 keep 规则，
-            // 否则类会被裁掉、运行时才报错。
-            isMinifyEnabled = true
-            isShrinkResources = true
+            // 默认开启 R8 代码压缩 + 资源裁剪。实测：debug 13.3 MB -> release 1.8 MB。
+            //
+            // 出问题时的应急开关（不改代码）：
+            //   ./gradlew :app:assembleRelease -PdisableR8=true
+            // 关掉后体积回到 9 MB 左右，功能与 debug 一致，用来快速判断"是不是 R8 裁错了"。
+            val r8Enabled = (findProperty("disableR8") as String?)?.toBoolean() != true
+            isMinifyEnabled = r8Enabled
+            isShrinkResources = r8Enabled
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",

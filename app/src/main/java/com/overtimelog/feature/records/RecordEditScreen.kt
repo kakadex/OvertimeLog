@@ -47,7 +47,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.overtimelog.core.model.CompTimeMode
 import com.overtimelog.core.model.OvertimeType
+import com.overtimelog.data.settings.BreakUnit
 import com.overtimelog.di.AppContainer
+import com.overtimelog.ui.common.BreakTime
 import com.overtimelog.ui.common.DateTexts
 import com.overtimelog.ui.common.Durations
 import com.overtimelog.ui.common.Money
@@ -199,9 +201,21 @@ fun RecordEditScreen(
                         OutlinedTextField(
                             value = state.breakText,
                             onValueChange = viewModel::onBreakChange,
-                            label = { Text("休息扣除（分钟）") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            label = { Text("休息扣除（${BreakTime.unitLabel(state.breakUnit)}）") },
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = if (state.breakUnit == BreakUnit.HOURS) {
+                                    KeyboardType.Decimal
+                                } else {
+                                    KeyboardType.Number
+                                },
+                            ),
                             singleLine = true,
+                            supportingText = {
+                                Text(
+                                    BreakTime.hint(state.breakText, state.breakUnit)
+                                        ?: "单位可在「设置 → 录入默认值」里切换",
+                                )
+                            },
                             modifier = Modifier.fillMaxWidth(),
                         )
                     }

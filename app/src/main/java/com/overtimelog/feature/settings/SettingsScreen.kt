@@ -2,6 +2,7 @@ package com.overtimelog.feature.settings
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -13,7 +14,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -32,18 +37,24 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.overtimelog.core.model.OvertimeType
 import com.overtimelog.core.model.SalaryMode
+import com.overtimelog.data.settings.BreakUnit
 import com.overtimelog.data.settings.ThemeMode
 import com.overtimelog.di.AppContainer
+import com.overtimelog.ui.common.BreakTime
+import com.overtimelog.ui.common.DateTexts
+import com.overtimelog.ui.common.Durations
 import com.overtimelog.ui.common.Money
 import com.overtimelog.ui.common.label
 import com.overtimelog.ui.components.ConfirmDialog
 import com.overtimelog.ui.components.InfoRow
 import com.overtimelog.ui.components.SectionCard
+import com.overtimelog.ui.components.TimePickerModal
 import java.time.LocalDate
 
 /**
@@ -61,6 +72,19 @@ fun SettingsScreen(
     val rule by viewModel.rule.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     var showClearConfirm by remember { mutableStateOf(false) }
+    var editingTime by remember { mutableStateOf<DefaultTimeTarget?>(null) }
+    var showBreakDialog by remember { mutableStateOf(false) }
+    var breakInput by remember { mutableStateOf("") }
+
+    // 默认上下班时间决定的默认工时长（跨天按次日算），让用户一眼看到改时间的效果。
+    val defaultStartMinutes = settings.defaultStartTime.hour * 60 + settings.defaultStartTime.minute
+    val defaultEndMinutes = settings.defaultEndTime.hour * 60 + settings.defaultEndTime.minute
+    val defaultRawMinutes = if (defaultEndMinutes <= defaultStartMinutes) {
+        defaultEndMinutes + 24 * 60 - defaultStartMinutes
+    } else {
+        defaultEndMinutes - defaultStartMinutes
+    }
+    val defaultDurationText = Durations.text((defaultRawMinutes - settings.defaultBreakMinutes).coerceAtLeast(0))
 
     val exportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("text/csv"),
@@ -120,34 +144,83 @@ fun SettingsScreen(
                 SectionCard(title = "录入默认值") {
                     Column {
                         Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { editingTime = DefaultTimeTarget.START }
+                                .padding(vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text("默认上班时间", style = MaterialTheme.typography.bodyMedium)
+                            Text(
+                                text = DateTexts.time(settings.defaultStartTime),
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { editingTime = DefaultTimeTarget.END }
+                                .padding(vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text("默认下班时间", style = MaterialTheme.typography.bodyMedium)
+                            Text(
+                                text = DateTexts.time(settings.defaultEndTime),
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                        Text(
+                            text = "默认工时长 $defaultDurationText（跨天按次日计算），实际录入时可以改。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp))
+
+                        Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text("默认休息扣除", style = MaterialTheme.typography.bodyMedium)
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                TextButton(
-                                    onClick = {
-                                        viewModel.setDefaultBreakMinutes(
-                                            (settings.defaultBreakMinutes - 15).coerceAtLeast(0),
-                                        )
-                                    },
-                                ) { Text("-15") }
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("默认休息扣除", style = MaterialTheme.typography.bodyMedium)
                                 Text(
-                                    text = "${settings.defaultBreakMinutes} 分钟",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    modifier = Modifier.width(84.dp),
+                                    text = "按${BreakTime.unitLabel(settings.breakUnit)}填写",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
-                                TextButton(
-                                    onClick = {
-                                        viewModel.setDefaultBreakMinutes(
-                                            (settings.defaultBreakMinutes + 15).coerceAtMost(1439),
-                                        )
-                                    },
-                                ) { Text("+15") }
+                            }
+                            TextButton(
+                                onClick = {
+                                    breakInput = BreakTime.format(
+                                        settings.defaultBreakMinutes,
+                                        settings.breakUnit,
+                                    )
+                                    showBreakDialog = true
+                                },
+                            ) {
+                                Text(
+                                    BreakTime.format(settings.defaultBreakMinutes, settings.breakUnit) +
+                                        " " + BreakTime.unitLabel(settings.breakUnit),
+                                )
                             }
                         }
-                        Spacer(Modifier.height(4.dp))
+
+                        Text("休息扣除单位", style = MaterialTheme.typography.bodyMedium)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf(BreakUnit.HOURS to "小时", BreakUnit.MINUTES to "分钟").forEach { (unit, text) ->
+                                FilterChip(
+                                    selected = settings.breakUnit == unit,
+                                    onClick = { viewModel.setBreakUnit(unit) },
+                                    label = { Text(text) },
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(6.dp))
                         Text("默认加班类型", style = MaterialTheme.typography.bodyMedium)
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             OvertimeType.entries.forEach { type ->
@@ -236,4 +309,70 @@ fun SettingsScreen(
             onDismiss = { showClearConfirm = false },
         )
     }
+
+    editingTime?.let { target ->
+        TimePickerModal(
+            initialTime = if (target == DefaultTimeTarget.START) {
+                settings.defaultStartTime
+            } else {
+                settings.defaultEndTime
+            },
+            title = if (target == DefaultTimeTarget.START) "默认上班时间" else "默认下班时间",
+            onConfirm = { time ->
+                if (target == DefaultTimeTarget.START) {
+                    viewModel.setDefaultTimes(time, settings.defaultEndTime)
+                } else {
+                    viewModel.setDefaultTimes(settings.defaultStartTime, time)
+                }
+                editingTime = null
+            },
+            onDismiss = { editingTime = null },
+        )
+    }
+
+    if (showBreakDialog) {
+        val parsed = BreakTime.parse(breakInput, settings.breakUnit)
+        AlertDialog(
+            onDismissRequest = { showBreakDialog = false },
+            title = { Text("默认休息扣除") },
+            text = {
+                OutlinedTextField(
+                    value = breakInput,
+                    onValueChange = { if (it.length <= 6) breakInput = it },
+                    label = { Text("时长（${BreakTime.unitLabel(settings.breakUnit)}）") },
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = if (settings.breakUnit == BreakUnit.HOURS) {
+                            KeyboardType.Decimal
+                        } else {
+                            KeyboardType.Number
+                        },
+                    ),
+                    singleLine = true,
+                    isError = breakInput.isNotBlank() && parsed == null,
+                    supportingText = {
+                        Text(
+                            BreakTime.hint(breakInput, settings.breakUnit)
+                                ?: "例如 0.5 小时 = 30 分钟",
+                        )
+                    },
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        parsed?.let {
+                            viewModel.setDefaultBreakMinutes(it)
+                            showBreakDialog = false
+                        }
+                    },
+                    enabled = parsed != null,
+                ) { Text("保存") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showBreakDialog = false }) { Text("取消") }
+            },
+        )
+    }
 }
+
+private enum class DefaultTimeTarget { START, END }

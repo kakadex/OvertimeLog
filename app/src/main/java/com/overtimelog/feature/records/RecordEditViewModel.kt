@@ -9,8 +9,10 @@ import com.overtimelog.core.model.CompTimeMode
 import com.overtimelog.core.model.DomainError
 import com.overtimelog.core.model.OvertimeType
 import com.overtimelog.core.model.SettlementStatus
+import com.overtimelog.data.settings.BreakUnit
 import com.overtimelog.di.AppContainer
 import com.overtimelog.domain.model.OvertimeDraft
+import com.overtimelog.ui.common.BreakTime
 import com.overtimelog.ui.common.toUiMessage
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -37,6 +39,8 @@ data class RecordEditUiState(
     val start: LocalTime = LocalTime.of(18, 0),
     val end: LocalTime = LocalTime.of(21, 0),
     val breakText: String = "0",
+    /** 休息扣除的输入单位，来自设置；只影响显示与解析，落库永远是分钟。 */
+    val breakUnit: BreakUnit = BreakUnit.HOURS,
     val type: OvertimeType = OvertimeType.WORKDAY,
     val compTimeMode: CompTimeMode = CompTimeMode.NONE,
     val manualAmountText: String = "",
@@ -86,7 +90,10 @@ class RecordEditViewModel(
                     it.copy(
                         loading = false,
                         date = initialDate ?: LocalDate.now(),
-                        breakText = settings.defaultBreakMinutes.toString(),
+                        start = settings.defaultStartTime,
+                        end = settings.defaultEndTime,
+                        breakUnit = settings.breakUnit,
+                        breakText = BreakTime.format(settings.defaultBreakMinutes, settings.breakUnit),
                         type = settings.defaultOvertimeType,
                     )
                 }
@@ -102,7 +109,8 @@ class RecordEditViewModel(
                             date = record.date,
                             start = record.start.toLocalTime(),
                             end = record.end.toLocalTime(),
-                            breakText = record.breakMinutes.toString(),
+                            breakUnit = settings.breakUnit,
+                            breakText = BreakTime.format(record.breakMinutes, settings.breakUnit),
                             type = record.type,
                             compTimeMode = record.compTimeMode,
                             manualCompText = record.compTimeMinutes.toString(),
@@ -135,7 +143,9 @@ class RecordEditViewModel(
     }
 
     fun onBreakChange(text: String) {
-        if (text.length > 4) return
+        // 小时单位允许 "0.25" 这种小数，长度放宽到 6 位；分钟单位 4 位足够。
+        val limit = if (_state.value.breakUnit == BreakUnit.HOURS) 6 else 4
+        if (text.length > limit) return
         _state.update { it.copy(breakText = text) }
         refreshPreview()
     }
@@ -177,7 +187,7 @@ class RecordEditViewModel(
 
     private fun draftOrNull(): OvertimeDraft? {
         val s = _state.value
-        val breakMinutes = s.breakText.toIntOrNull() ?: return null
+        val breakMinutes = BreakTime.parse(s.breakText, s.breakUnit) ?: return null
         val manualAmountCents = if (s.manualAmountText.isBlank()) {
             null
         } else {
