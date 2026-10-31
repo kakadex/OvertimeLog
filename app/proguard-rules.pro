@@ -6,7 +6,7 @@
 # 当前项目没有反射边界：Room / Compose / Navigation / DataStore 都是编译期生成或直接调用，
 # 所以下面只保留通用属性，不做大范围 keep。
 #
-# 以后加下面这些功能时，必须同步补规则，并把 release 冒烟脚本（scripts/smoke-release.ps1）跑一遍：
+# 以后加下面这些功能时，必须同步补规则，并把压缩包的冒烟验证跑一遍：
 #   1. kotlinx.serialization（备份 JSON / 快照反序列化）
 #      -keepattributes *Annotation*, InnerClasses
 #      -keepclassmembers class com.overtimelog.** { *** Companion; }

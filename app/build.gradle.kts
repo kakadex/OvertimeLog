@@ -7,15 +7,15 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
-// ---------- 版本号：与 MusicOrganizer 同一套规则 ----------
-// VERSION 是唯一真源（X.Y.Z，第二/三段 0-99，满 100 进位），
-// BUILD_NUMBER 是单调递增的 versionCode，两者都由 scripts/set-version.ps1 维护。
+// ---------- 版本号：VERSION 与 BUILD_NUMBER 两个文件共同决定 ----------
+// VERSION 是版本名（X.Y.Z，第二、三段 0-99，满 100 进位），
+// BUILD_NUMBER 是单调递增的 versionCode；两者都由构建脚本统一维护。
 val versionFile = rootProject.file("VERSION")
 val buildNumberFile = rootProject.file("BUILD_NUMBER")
 val appVersionName = if (versionFile.exists()) versionFile.readText().trim() else "0.0.0"
 val appVersionCode = if (buildNumberFile.exists()) buildNumberFile.readText().trim().toInt() else 1
 
-// ---------- 正式签名：signing.properties（不入库），缺省时不签名 ----------
+// ---------- 正式签名：从本地签名配置读取，缺省时不签名 ----------
 val signingPropertiesFile = rootProject.file("signing.properties")
 val signingProperties = Properties().apply {
     if (signingPropertiesFile.exists()) {
@@ -77,7 +77,7 @@ android {
             )
 
             // 签名优先级：正式 keystore > 显式允许的 debug 证书 > 不签名。
-            // 没有正式签名时产出的是 unsigned 包，装不上；scripts/release.ps1 会直接拦住。
+            // 没有正式签名时产出的是 unsigned 包，装不上；发布流程会在打包前直接拦住。
             signingConfig = when {
                 // 显式允许时才用调试证书（只给本地测试脚本），否则永远优先正式签名
                 allowDebugSign -> signingConfigs.getByName("debug")
