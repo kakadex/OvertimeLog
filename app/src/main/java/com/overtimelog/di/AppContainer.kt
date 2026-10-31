@@ -71,6 +71,11 @@ class AppContainer(context: Context) {
 
     val updateRepository: UpdateRepository by lazy { HttpUpdateRepository() }
 
+    /** 节假日数据远程更新（国家没有官方接口，用第三方整理的数据）。 */
+    val holidayRepository: com.overtimelog.data.update.HolidayRepository by lazy {
+        com.overtimelog.data.update.HolidayRepository()
+    }
+
     /** 应用内下载并安装新版本；状态同样只有一份，设置页和首页共用。 */
     val apkInstaller: ApkInstaller by lazy { ApkInstaller(appContext, updateRepository) }
 

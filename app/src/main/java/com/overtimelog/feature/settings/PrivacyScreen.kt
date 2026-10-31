@@ -56,7 +56,19 @@ fun PrivacyScreen(onBack: () -> Unit) {
                 SectionCard(title = "不会收集什么") {
                     Text(
                         text = "不采集姓名、手机号、位置、通讯录、短信；不接入统计分析 SDK，不上传崩溃日志；"
-                            + "检查更新时只向 Gitee / GitHub 读取公开的版本号，不发送任何记录或个人数据。",
+                            + "检查更新时只向 Gitee / GitHub 读取公开的版本号，"
+                            + "更新放假安排时只按年份请求公开数据，都不发送任何记录或个人数据。",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+            }
+            item {
+                SectionCard(title = "日历与放假安排") {
+                    Text(
+                        text = "日历上的「休 / 班」来自应用内置的公开放假安排（2025、2026 年），不需要联网，"
+                            + "也不会读取你手机里自带的日历。"
+                            + "点「更新XXXX年安排」才会联网获取该年数据，结果存在本机；"
+                            + "长按某天还能手动改这天的性质。",
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 }
@@ -64,8 +76,8 @@ fun PrivacyScreen(onBack: () -> Unit) {
             item {
                 SectionCard(title = "检查更新与下载") {
                     Text(
-                        text = "应用只用网络做两件事：读取 Gitee 或 GitHub 的最新版本号，以及下载你主动点的新版本 APK。"
-                            + "优先用 Gitee，连不上时改用 GitHub；不登录、不携带任何标识。"
+                        text = "应用联网只做这几件事：读取 Gitee 或 GitHub 的最新版本号、下载你主动点的新版本 APK、"
+                            + "更新放假安排。优先用 Gitee，连不上时改用 GitHub；不登录、不携带任何标识。"
                             + "可以在设置里关掉「启动时自动检查更新」，关掉后只有你主动点「检查更新」才会联网。",
                         style = MaterialTheme.typography.bodyMedium,
                     )
@@ -76,7 +88,7 @@ fun PrivacyScreen(onBack: () -> Unit) {
                     Text(
                         text = "导出 CSV 时使用系统文件选择器，只获得你主动选中的那一个文件的写入权限，"
                             + "不申请读写存储的广泛权限。应用内更新会把 APK 下到应用私有目录，"
-                            + "装包时通过系统安装界面确认，同样不申请存储权限。",
+                            + "装包时通过系统安装界面确认，同样不申请存储权限。日历不申请日历权限。",
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 }

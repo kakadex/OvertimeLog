@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.overtimelog.core.model.OvertimeType
 import com.overtimelog.domain.repository.SettingsRepository
@@ -62,6 +63,19 @@ data class AppSettings(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     /** 启动时静默检查更新。默认开启；关掉后只能到设置里手动检查。 */
     val updateCheckOnStartup: Boolean = true,
+    /**
+     * 用户在日历里手动改过的日期性质：`2026-10-10=MAKEUP_WORKDAY` 这样的键值对。
+     *
+     * 内置的放假安排不可能覆盖所有年份（官方每年才公布一次），也不保证和公司实际一致，
+     * 所以允许用户自己改；这里的优先级最高。
+     */
+    val dayOverrides: Map<String, String> = emptyMap(),
+    /**
+     * 从远程接口更新下来的放假安排：`2027-10-01=国庆节|1`（1=放假，0=补班）。
+     *
+     * 按年缓存在本机，断网也能用；用户手动改的 [dayOverrides] 优先级更高。
+     */
+    val remoteHolidays: Set<String> = emptySet(),
     val hasSeenPrivacyNotice: Boolean = false,
     val reminderEnabled: Boolean = false,
     val reminderHour: Int = 18,
@@ -84,6 +98,14 @@ class DataStoreSettingsRepository(context: Context) : SettingsRepository {
             defaultEndTime = minutesOfDayToTime(prefs[KEY_DEFAULT_END] ?: DEFAULT_END_MINUTES),
             themeMode = ThemeMode.fromCode(prefs[KEY_THEME]),
             updateCheckOnStartup = prefs[KEY_UPDATE_CHECK_ON_STARTUP] ?: true,
+            dayOverrides = prefs[KEY_DAY_OVERRIDES]
+                ?.mapNotNull { entry ->
+                    val parts = entry.split('=', limit = 2)
+                    if (parts.size == 2) parts[0] to parts[1] else null
+                }
+                ?.toMap()
+                ?: emptyMap(),
+            remoteHolidays = prefs[KEY_REMOTE_HOLIDAYS] ?: emptySet(),
             hasSeenPrivacyNotice = prefs[KEY_SEEN_PRIVACY] ?: false,
             reminderEnabled = prefs[KEY_REMINDER_ENABLED] ?: false,
             reminderHour = prefs[KEY_REMINDER_HOUR] ?: 18,
@@ -118,6 +140,35 @@ class DataStoreSettingsRepository(context: Context) : SettingsRepository {
         store.edit { it[KEY_UPDATE_CHECK_ON_STARTUP] = enabled }
     }
 
+    /**
+     * 保存用户手动改的一天性质。
+     *
+     * [kindCode] 传空表示"恢复自动判断"（删掉这条覆盖）。
+     * 存成 `2026-10-10=MAKEUP_WORKDAY`，读的时候再拆开，比多存一个 JSON 更省事。
+     */
+    override suspend fun setDayOverride(date: java.time.LocalDate, kindCode: String?) {
+        store.edit { prefs ->
+            val current = prefs[KEY_DAY_OVERRIDES]?.toMutableSet() ?: mutableSetOf()
+            current.removeAll { it.startsWith("${date}=") }
+            if (!kindCode.isNullOrBlank()) current.add("$date=$kindCode")
+            prefs[KEY_DAY_OVERRIDES] = current
+        }
+    }
+
+    /**
+     * 用远程拿到的某一年数据替换本地缓存。
+     *
+     * 只替换这一年，别的年份保留：用户可能已经更新过好几个年份。
+     */
+    override suspend fun replaceRemoteHolidays(year: Int, entries: Set<String>) {
+        store.edit { prefs ->
+            val others = prefs[KEY_REMOTE_HOLIDAYS]
+                ?.filterNot { it.startsWith("$year-") }
+                ?: emptyList()
+            prefs[KEY_REMOTE_HOLIDAYS] = (others + entries).toSet()
+        }
+    }
+
     override suspend fun setPrivacyNoticeSeen() {
         store.edit { it[KEY_SEEN_PRIVACY] = true }
     }
@@ -149,6 +200,8 @@ class DataStoreSettingsRepository(context: Context) : SettingsRepository {
         val KEY_DEFAULT_END = intPreferencesKey("default_end_minutes_of_day")
         val KEY_THEME = stringPreferencesKey("theme_mode")
         val KEY_UPDATE_CHECK_ON_STARTUP = booleanPreferencesKey("update_check_on_startup")
+        val KEY_DAY_OVERRIDES = stringSetPreferencesKey("day_overrides")
+        val KEY_REMOTE_HOLIDAYS = stringSetPreferencesKey("remote_holidays")
         val KEY_SEEN_PRIVACY = booleanPreferencesKey("seen_privacy_notice")
         val KEY_REMINDER_ENABLED = booleanPreferencesKey("reminder_enabled")
         val KEY_REMINDER_HOUR = intPreferencesKey("reminder_hour")

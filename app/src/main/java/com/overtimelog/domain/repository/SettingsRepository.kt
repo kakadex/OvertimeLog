@@ -16,6 +16,10 @@ interface SettingsRepository {
     suspend fun setDefaultOvertimeType(type: OvertimeType)
     suspend fun setThemeMode(mode: ThemeMode)
     suspend fun setUpdateCheckOnStartup(enabled: Boolean)
+    /** 手动指定某天的性质（休息日 / 节假日 / 补班）；传 null 表示恢复自动判断。 */
+    suspend fun setDayOverride(date: java.time.LocalDate, kindCode: String?)
+    /** 用远程拿到的某一年放假安排替换本地缓存（只替换该年）。 */
+    suspend fun replaceRemoteHolidays(year: Int, entries: Set<String>)
     suspend fun setPrivacyNoticeSeen()
     suspend fun setReminderEnabled(enabled: Boolean)
     suspend fun setReminderTime(hour: Int, minute: Int)
