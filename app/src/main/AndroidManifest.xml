@@ -5,6 +5,11 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- 应用内下载完成后直接拉起系统安装器；不申请存储权限，APK 走 FileProvider 授权。 -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- 下载期间的前台服务：切到别的 App 时保持下载不被系统掐断 -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <!-- Android 13+ 前台服务需要显示通知；拒绝也不影响下载本身 -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <!-- 不申请存储权限：CSV 导出走系统文件选择器（SAF），见架构文档 ADR-005。 -->
     <application
@@ -26,6 +31,12 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+
+        <!-- 下载期间保持前台，避免切到微信等应用时下载被系统中断 -->
+        <service
+            android:name=".data.update.UpdateDownloadService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
 
         <activity
             android:name=".MainActivity"

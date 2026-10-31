@@ -2,16 +2,16 @@
 
 一个 Android 端的个人加班记录与加班费估算工具：离线优先、数据只存本机、计算规则可配置。
 
-本项目按《加班记项目需求文档 V1.0》与《加班记 Android 架构设计文档 V1.0》落地，当前版本 **1.0.8**。以 [MIT 协议](LICENSE) 开源。
+本项目按《加班记项目需求文档 V1.0》与《加班记 Android 架构设计文档 V1.0》落地，当前版本 **1.0.9**。以 [MIT 协议](LICENSE) 开源。
 
 ## 下载
 
 | 渠道 | 地址 |
 | --- | --- |
-| Gitee Releases（国内推荐） | https://gitee.com/kakadex/overtimelog/releases/tag/v1.0.8 |
-| GitHub Releases | https://github.com/kakadex/OvertimeLog/releases/tag/v1.0.8 |
+| Gitee Releases（国内推荐） | https://gitee.com/kakadex/overtimelog/releases/tag/v1.0.9 |
+| GitHub Releases | https://github.com/kakadex/OvertimeLog/releases/tag/v1.0.9 |
 
-不确定机型就下载 `OvertimeLog-1.0.8-android-arm64-v8a.apk`（绝大多数手机）；
+不确定机型就下载 `OvertimeLog-1.0.9-android-arm64-v8a.apk`（绝大多数手机）；
 校验值见发布页的 `SHA256SUMS.txt`，`latest.txt` 提供机器可读的最新版本信息。
 应用内「设置 → 更新」也能检查新版本，并直接下载安装对应版本。
 

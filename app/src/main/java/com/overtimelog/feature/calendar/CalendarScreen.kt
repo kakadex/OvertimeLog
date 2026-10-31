@@ -118,13 +118,12 @@ fun CalendarScreen(
                     if (!isToday) {
                         // 圆形"今"按钮：
                         // - 距右边框 0.5cm（≈21dp），不贴边
-                        // - 相对标题栏顶部再下移 0.3cm（≈31px / 约 12-13dp 的额外偏移）
-                        // - 文字与"日历"标题同字号，淡蓝底
-                        Spacer(Modifier.width(21.dp))
+                        // - 与「日历」标题垂直居中对齐（不再下移，避免底部被标题栏裁掉）
+                        // - 文字与标题同字号，淡蓝底
                         FilledTonalIconButton(
                             onClick = viewModel::backToToday,
                             modifier = Modifier
-                                .padding(top = 39.dp)
+                                .padding(end = 21.dp)
                                 .size(40.dp),
                             colors = IconButtonDefaults.filledTonalIconButtonColors(
                                 containerColor = MaterialTheme.colorScheme.primaryContainer,
@@ -137,7 +136,8 @@ fun CalendarScreen(
                                 fontWeight = FontWeight.Medium,
                             )
                         }
-                        Spacer(Modifier.width(21.dp))
+                        // 右边的 Spacer 保持 0，靠 padding 精确控制 0.5cm 边距
+                        Spacer(Modifier.width(0.dp))
                     }
                 },
             )
