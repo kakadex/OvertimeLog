@@ -1,8 +1,5 @@
 # 版本说明
 
-版本号规则与 MusicOrganizer 一致：`VERSION` 是唯一真源（X.Y.Z，第二/三段 0–99），
-`BUILD_NUMBER` 是单调递增的 versionCode。改版本用 `scripts/set-version.ps1`。
-
 ## v1.0.6（2026-10-31）
 
 **调整：放假安排入口移到设置**
