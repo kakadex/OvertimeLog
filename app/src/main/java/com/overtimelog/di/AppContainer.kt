@@ -10,6 +10,7 @@ import com.overtimelog.data.repository.RoomCompTimeRepository
 import com.overtimelog.data.repository.RoomOvertimeRepository
 import com.overtimelog.data.repository.RoomSalaryRuleRepository
 import com.overtimelog.data.settings.DataStoreSettingsRepository
+import com.overtimelog.data.update.ApkInstaller
 import com.overtimelog.data.update.HttpUpdateRepository
 import com.overtimelog.data.update.UpdateChecker
 import com.overtimelog.domain.model.AppVersion
@@ -69,6 +70,9 @@ class AppContainer(context: Context) {
     }
 
     val updateRepository: UpdateRepository by lazy { HttpUpdateRepository() }
+
+    /** 应用内下载并安装新版本；状态同样只有一份，设置页和首页共用。 */
+    val apkInstaller: ApkInstaller by lazy { ApkInstaller(appContext, updateRepository) }
 
     /** 更新检查的状态只有这一份，设置页和首页都观察它。 */
     val updateChecker: UpdateChecker by lazy {

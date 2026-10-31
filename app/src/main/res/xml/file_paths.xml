@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- 应用内更新下载到 files/updates/，装包时用 FileProvider 把单个 APK 临时授权给系统安装器 -->
+    <external-files-path name="updates" path="updates/" />
+    <files-path name="updates_internal" path="updates/" />
+</paths>

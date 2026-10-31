@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- 只用于"检查更新"：读取 Gitee / GitHub 的公开版本号；不上传任何记录或个人数据。 -->
+    <!-- 只用于"检查更新"和"应用内下载新版本"：读公开版本号、下 APK；不上传任何记录或个人数据。 -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- 应用内下载完成后直接拉起系统安装器；不申请存储权限，APK 走 FileProvider 授权。 -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <!-- 不申请存储权限：CSV 导出走系统文件选择器（SAF），见架构文档 ADR-005。 -->
     <application
@@ -13,6 +15,17 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.OvertimeLog">
+
+        <!-- 应用内更新：把下载好的 APK 临时授权给系统安装器 -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.updates"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
 
         <activity
             android:name=".MainActivity"

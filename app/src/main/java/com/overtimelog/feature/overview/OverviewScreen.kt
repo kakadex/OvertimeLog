@@ -1,5 +1,7 @@
 package com.overtimelog.feature.overview
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -19,6 +21,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -43,12 +46,14 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.overtimelog.BuildConfig
 import com.overtimelog.di.AppContainer
+import com.overtimelog.domain.model.InstallState
 import com.overtimelog.domain.model.RemoteRelease
 import com.overtimelog.domain.model.UpdateState
 import com.overtimelog.ui.common.Durations
 import com.overtimelog.ui.common.Money
 import com.overtimelog.ui.common.label
 import com.overtimelog.ui.common.openWebPage
+import com.overtimelog.ui.common.supportedAbis
 import com.overtimelog.ui.components.EmptyState
 import com.overtimelog.ui.components.MonthSwitcher
 import com.overtimelog.ui.components.RecordCard
@@ -78,11 +83,17 @@ fun OverviewScreen(
 
     // 启动时静默检查更新的结果：有新版本才在这一屏顶部挂一条提示，不弹窗、不打断记录
     val updateState by container.updateChecker.state.collectAsStateWithLifecycle()
+    val installState by container.apkInstaller.state.collectAsStateWithLifecycle()
     val availableUpdate = (updateState as? UpdateState.Available)?.release
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var dismissedUpdateTag by rememberSaveable { mutableStateOf<String?>(null) }
+
+    // 下载完成 → 直接拉起系统安装界面
+    val installLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult(),
+    ) { container.apkInstaller.resetIfFinished() }
 
     Scaffold(
         topBar = {
@@ -112,7 +123,20 @@ fun OverviewScreen(
                 item {
                     UpdateAvailableCard(
                         release = updateToShow,
-                        onOpen = {
+                        installState = installState,
+                        onDownload = {
+                            val candidates = container.apkInstaller.candidatesFor(updateToShow, supportedAbis())
+                            if (candidates.isEmpty()) {
+                                scope.launch {
+                                    snackbarHostState.showSnackbar("没有找到可下载的安装包，请到设置 → 下载里打开下载页")
+                                }
+                            } else {
+                                container.apkInstaller.download(updateToShow, supportedAbis(), candidates) { intent ->
+                                    runCatching { installLauncher.launch(intent) }
+                                }
+                            }
+                        },
+                        onOpenPage = {
                             if (!context.openWebPage(updateToShow.pageUrl)) {
                                 scope.launch {
                                     snackbarHostState.showSnackbar("没有找到可用的浏览器，请到设置里手动打开发布页")
@@ -242,33 +266,59 @@ fun OverviewScreen(
 @Composable
 private fun UpdateAvailableCard(
     release: RemoteRelease,
-    onOpen: () -> Unit,
+    installState: InstallState,
+    onDownload: () -> Unit,
+    onOpenPage: () -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val downloading = installState is InstallState.Downloading
     Card(
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.secondaryContainer,
         ),
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 16.dp, top = 10.dp, bottom = 10.dp, end = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
+                .padding(start = 16.dp, top = 10.dp, bottom = 6.dp, end = 8.dp),
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "发现新版本 ${release.version}",
-                    style = MaterialTheme.typography.titleSmall,
-                )
-                Text(
-                    text = "当前 ${BuildConfig.VERSION_NAME} · 来自 ${release.source.label()}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "发现新版本 ${release.version}",
+                        style = MaterialTheme.typography.titleSmall,
+                    )
+                    Text(
+                        text = when (installState) {
+                            is InstallState.Downloading -> "正在下载 ${installState.percentText}"
+                            InstallState.Installing -> "正在安装…"
+                            is InstallState.Failed -> installState.message
+                            else -> "当前 ${BuildConfig.VERSION_NAME} · 来自 ${release.source.label()}"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (installState is InstallState.Failed) {
+                            MaterialTheme.colorScheme.error
+                        } else {
+                            MaterialTheme.colorScheme.onSecondaryContainer
+                        },
+                    )
+                }
+                TextButton(onClick = onDownload, enabled = !downloading) {
+                    Text(if (downloading) "下载中" else "立即更新")
+                }
+                TextButton(onClick = onDismiss) { Text("忽略") }
+            }
+            if (downloading) {
+                LinearProgressIndicator(
+                    progress = { if (installState.percent >= 0) installState.percent / 100f else 0f },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(end = 8.dp, bottom = 6.dp),
                 )
             }
-            TextButton(onClick = onOpen) { Text("去下载") }
-            TextButton(onClick = onDismiss) { Text("忽略") }
+            if (installState is InstallState.Failed) {
+                TextButton(onClick = onOpenPage) { Text("打开发布页手动下载") }
+            }
         }
     }
 }

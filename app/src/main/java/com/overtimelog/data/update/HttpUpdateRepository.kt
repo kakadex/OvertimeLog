@@ -2,12 +2,14 @@ package com.overtimelog.data.update
 
 import com.overtimelog.BuildConfig
 import com.overtimelog.domain.model.AppVersion
+import com.overtimelog.domain.model.ReleaseAsset
 import com.overtimelog.domain.model.RemoteRelease
 import com.overtimelog.domain.model.UpdateSource
 import com.overtimelog.domain.repository.UpdateRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
 import java.net.ConnectException
@@ -72,7 +74,33 @@ class HttpUpdateRepository(
         // GitHub 会带 html_url；Gitee 不一定带，按 tag 拼发布页地址
         val pageUrl = json.optString("html_url").trim()
             .ifBlank { ReleaseChannels.tagPage(tag, source) }
-        return RemoteRelease(version = version, tag = tag, pageUrl = pageUrl, source = source)
+        return RemoteRelease(
+            version = version,
+            tag = tag,
+            pageUrl = pageUrl,
+            source = source,
+            assets = parseAssets(json.optJSONArray("assets")),
+        )
+    }
+
+    /**
+     * 解析附件列表。
+     *
+     * 两个站的字段名一致（`name` / `browser_download_url`），只有大小在 GitHub 才有（`size`）；
+     * Gitee 不给大小时记 0，下载时按"总大小未知"处理，界面显示"下载中…"。
+     * Gitee 还会附带源码包（v1.0.3.zip 之类），这些不是 APK，后面挑包时会自然被过滤掉。
+     */
+    private fun parseAssets(array: JSONArray?): List<ReleaseAsset> {
+        if (array == null) return emptyList()
+        val result = ArrayList<ReleaseAsset>(array.length())
+        for (index in 0 until array.length()) {
+            val item = array.optJSONObject(index) ?: continue
+            val name = item.optString("name").trim()
+            val url = item.optString("browser_download_url").trim()
+            if (name.isEmpty() || url.isEmpty()) continue
+            result += ReleaseAsset(name = name, url = url, sizeBytes = item.optLong("size", 0L))
+        }
+        return result
     }
 
     private fun getJson(url: String): String {

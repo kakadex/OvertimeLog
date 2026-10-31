@@ -62,10 +62,10 @@ fun PrivacyScreen(onBack: () -> Unit) {
                 }
             }
             item {
-                SectionCard(title = "检查更新") {
+                SectionCard(title = "检查更新与下载") {
                     Text(
-                        text = "应用只用网络做一件事：连接 Gitee 或 GitHub 的公开接口，读取最新版本号。"
-                            + "优先读 Gitee，连不上时改用 GitHub；不登录、不携带任何标识。"
+                        text = "应用只用网络做两件事：读取 Gitee 或 GitHub 的最新版本号，以及下载你主动点的新版本 APK。"
+                            + "优先用 Gitee，连不上时改用 GitHub；不登录、不携带任何标识。"
                             + "可以在设置里关掉「启动时自动检查更新」，关掉后只有你主动点「检查更新」才会联网。",
                         style = MaterialTheme.typography.bodyMedium,
                     )
@@ -75,7 +75,8 @@ fun PrivacyScreen(onBack: () -> Unit) {
                 SectionCard(title = "权限") {
                     Text(
                         text = "导出 CSV 时使用系统文件选择器，只获得你主动选中的那一个文件的写入权限，"
-                            + "不申请读写存储的广泛权限。",
+                            + "不申请读写存储的广泛权限。应用内更新会把 APK 下到应用私有目录，"
+                            + "装包时通过系统安装界面确认，同样不申请存储权限。",
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 }

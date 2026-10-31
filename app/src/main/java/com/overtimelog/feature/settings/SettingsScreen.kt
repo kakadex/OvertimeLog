@@ -19,6 +19,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.IconButton
@@ -50,6 +51,7 @@ import com.overtimelog.core.model.SalaryMode
 import com.overtimelog.data.settings.BreakUnit
 import com.overtimelog.data.settings.ThemeMode
 import com.overtimelog.data.update.ReleaseChannels
+import com.overtimelog.domain.model.InstallState
 import com.overtimelog.domain.model.UpdateState
 import com.overtimelog.BuildConfig
 import com.overtimelog.di.AppContainer
@@ -81,6 +83,7 @@ fun SettingsScreen(
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val rule by viewModel.rule.collectAsStateWithLifecycle()
     val updateState by viewModel.updateState.collectAsStateWithLifecycle()
+    val installState by viewModel.installState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -111,6 +114,11 @@ fun SettingsScreen(
     ) { uri ->
         if (uri != null) viewModel.exportCsv(uri.toString())
     }
+
+    // 下载完成 → 直接拉起系统安装界面（需要用户在本机允许"安装未知应用"）
+    val installLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult(),
+    ) { viewModel.resetInstallState() }
 
     LaunchedEffect(Unit) {
         viewModel.events.collect { message -> snackbarHostState.showSnackbar(message) }
@@ -348,11 +356,47 @@ fun SettingsScreen(
 
                         (updateState as? UpdateState.Available)?.let { available ->
                             Spacer(Modifier.height(8.dp))
+                            val install = installState
+                            val downloading = install is InstallState.Downloading
                             Button(
+                                onClick = {
+                                    viewModel.downloadUpdate(available.release) { intent ->
+                                        runCatching { installLauncher.launch(intent) }
+                                    }
+                                },
+                                enabled = !downloading,
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Text(
+                                    when {
+                                        downloading -> "正在下载 ${install.percentText}"
+                                        install is InstallState.Installing -> "正在安装…"
+                                        else -> "下载并安装 ${available.release.version}"
+                                    },
+                                )
+                            }
+                            if (downloading) {
+                                Spacer(Modifier.height(6.dp))
+                                LinearProgressIndicator(
+                                    progress = { if (install.percent >= 0) install.percent / 100f else 0f },
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                            }
+                            install.let { current ->
+                                if (current is InstallState.Failed) {
+                                    Spacer(Modifier.height(6.dp))
+                                    Text(
+                                        text = current.message,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.error,
+                                    )
+                                }
+                            }
+                            TextButton(
                                 onClick = { openPage(available.release.pageUrl) },
                                 modifier = Modifier.fillMaxWidth(),
                             ) {
-                                Text("前往下载 ${available.release.version}")
+                                Text("打开发布页（手动下载）")
                             }
                         }
 
