@@ -1,6 +1,7 @@
 package com.overtimelog.di
 
 import android.content.Context
+import com.overtimelog.BuildConfig
 import com.overtimelog.core.calculation.CalculationEngine
 import com.overtimelog.data.export.ContentResolverUriSink
 import com.overtimelog.data.export.CsvExporter
@@ -9,10 +10,14 @@ import com.overtimelog.data.repository.RoomCompTimeRepository
 import com.overtimelog.data.repository.RoomOvertimeRepository
 import com.overtimelog.data.repository.RoomSalaryRuleRepository
 import com.overtimelog.data.settings.DataStoreSettingsRepository
+import com.overtimelog.data.update.HttpUpdateRepository
+import com.overtimelog.data.update.UpdateChecker
+import com.overtimelog.domain.model.AppVersion
 import com.overtimelog.domain.repository.CompTimeRepository
 import com.overtimelog.domain.repository.OvertimeRepository
 import com.overtimelog.domain.repository.SalaryRuleRepository
 import com.overtimelog.domain.repository.SettingsRepository
+import com.overtimelog.domain.repository.UpdateRepository
 import com.overtimelog.domain.usecase.AddCompTimeUsageUseCase
 import com.overtimelog.domain.usecase.AddOvertimeRecordUseCase
 import com.overtimelog.domain.usecase.CalculatePreviewUseCase
@@ -24,6 +29,11 @@ import com.overtimelog.domain.usecase.MarkMonthSettledUseCase
 import com.overtimelog.domain.usecase.MarkRecordsSettledUseCase
 import com.overtimelog.domain.usecase.RestoreOvertimeRecordUseCase
 import com.overtimelog.domain.usecase.UpdateOvertimeRecordUseCase
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import java.time.Clock
 
 /**
@@ -39,6 +49,9 @@ class AppContainer(context: Context) {
     private val appContext = context.applicationContext
     private val database: AppDatabase by lazy { AppDatabase.build(appContext) }
 
+    /** 应用级协程作用域：只用于"启动时检查更新"这种不跟随页面生命周期的事。 */
+    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
     val clock: Clock = Clock.systemDefaultZone()
     val engine: CalculationEngine = CalculationEngine()
 
@@ -53,6 +66,16 @@ class AppContainer(context: Context) {
     }
     val settingsRepository: SettingsRepository by lazy {
         DataStoreSettingsRepository(appContext)
+    }
+
+    val updateRepository: UpdateRepository by lazy { HttpUpdateRepository() }
+
+    /** 更新检查的状态只有这一份，设置页和首页都观察它。 */
+    val updateChecker: UpdateChecker by lazy {
+        UpdateChecker(
+            repository = updateRepository,
+            currentVersion = AppVersion.parse(BuildConfig.VERSION_NAME) ?: AppVersion(0, 0, 0),
+        )
     }
 
     private val csvExporter: CsvExporter by lazy {
@@ -91,5 +114,20 @@ class AppContainer(context: Context) {
     }
     val deleteCompTimeUsage: DeleteCompTimeUsageUseCase by lazy {
         DeleteCompTimeUsageUseCase(compTimeRepository)
+    }
+
+    /**
+     * 启动时静默检查更新。
+     *
+     * 只有用户在设置里开着"启动时自动检查"才发请求；失败不打扰用户，结果留给设置页/首页显示。
+     * 由 [com.overtimelog.OvertimeApp] 在进程启动时调用一次。
+     */
+    fun checkForUpdatesOnLaunch() {
+        appScope.launch {
+            val enabled = runCatching {
+                settingsRepository.settings.first().updateCheckOnStartup
+            }.getOrDefault(false)
+            if (enabled) updateChecker.check(silent = true)
+        }
     }
 }

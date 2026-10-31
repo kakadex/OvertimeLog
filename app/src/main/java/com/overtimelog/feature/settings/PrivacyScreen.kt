@@ -55,8 +55,18 @@ fun PrivacyScreen(onBack: () -> Unit) {
             item {
                 SectionCard(title = "不会收集什么") {
                     Text(
-                        text = "不采集姓名、手机号、位置、通讯录、短信；不接入统计分析 SDK，不上传崩溃日志，"
-                            + "应用本身不申请网络权限。",
+                        text = "不采集姓名、手机号、位置、通讯录、短信；不接入统计分析 SDK，不上传崩溃日志；"
+                            + "检查更新时只向 Gitee / GitHub 读取公开的版本号，不发送任何记录或个人数据。",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+            }
+            item {
+                SectionCard(title = "检查更新") {
+                    Text(
+                        text = "应用只用网络做一件事：连接 Gitee 或 GitHub 的公开接口，读取最新版本号。"
+                            + "优先读 Gitee，连不上时改用 GitHub；不登录、不携带任何标识。"
+                            + "可以在设置里关掉「启动时自动检查更新」，关掉后只有你主动点「检查更新」才会联网。",
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 }

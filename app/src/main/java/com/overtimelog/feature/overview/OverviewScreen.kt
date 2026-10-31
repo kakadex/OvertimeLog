@@ -14,31 +14,47 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.overtimelog.BuildConfig
 import com.overtimelog.di.AppContainer
+import com.overtimelog.domain.model.RemoteRelease
+import com.overtimelog.domain.model.UpdateState
 import com.overtimelog.ui.common.Durations
 import com.overtimelog.ui.common.Money
+import com.overtimelog.ui.common.label
+import com.overtimelog.ui.common.openWebPage
 import com.overtimelog.ui.components.EmptyState
 import com.overtimelog.ui.components.MonthSwitcher
 import com.overtimelog.ui.components.RecordCard
 import com.overtimelog.ui.components.SectionCard
 import com.overtimelog.ui.components.StatTile
+import kotlinx.coroutines.launch
 import java.time.YearMonth
 
 /**
@@ -60,10 +76,19 @@ fun OverviewScreen(
     val summary = state.summary
     val isCurrentMonth = state.month == YearMonth.now()
 
+    // 启动时静默检查更新的结果：有新版本才在这一屏顶部挂一条提示，不弹窗、不打断记录
+    val updateState by container.updateChecker.state.collectAsStateWithLifecycle()
+    val availableUpdate = (updateState as? UpdateState.Available)?.release
+    val context = LocalContext.current
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    var dismissedUpdateTag by rememberSaveable { mutableStateOf<String?>(null) }
+
     Scaffold(
         topBar = {
             TopAppBar(title = { Text("加班记") })
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             ExtendedFloatingActionButton(
                 onClick = onAddRecord,
@@ -82,6 +107,23 @@ fun OverviewScreen(
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 96.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            val updateToShow = availableUpdate?.takeIf { it.tag != dismissedUpdateTag }
+            if (updateToShow != null) {
+                item {
+                    UpdateAvailableCard(
+                        release = updateToShow,
+                        onOpen = {
+                            if (!context.openWebPage(updateToShow.pageUrl)) {
+                                scope.launch {
+                                    snackbarHostState.showSnackbar("没有找到可用的浏览器，请到设置里手动打开发布页")
+                                }
+                            }
+                        },
+                        onDismiss = { dismissedUpdateTag = updateToShow.tag },
+                    )
+                }
+            }
+
             item {
                 MonthSwitcher(
                     month = state.month,
@@ -187,6 +229,46 @@ fun OverviewScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+        }
+    }
+}
+
+/**
+ * 顶部的新版本提示条。
+ *
+ * 启动时静默检查发现新版本才出现；"忽略"只藏到这次退出应用为止，不清除检查结果，
+ * 所以进设置页仍然能看到版本号和下载入口。
+ */
+@Composable
+private fun UpdateAvailableCard(
+    release: RemoteRelease,
+    onOpen: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+        ),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 16.dp, top = 10.dp, bottom = 10.dp, end = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "发现新版本 ${release.version}",
+                    style = MaterialTheme.typography.titleSmall,
+                )
+                Text(
+                    text = "当前 ${BuildConfig.VERSION_NAME} · 来自 ${release.source.label()}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                )
+            }
+            TextButton(onClick = onOpen) { Text("去下载") }
+            TextButton(onClick = onDismiss) { Text("忽略") }
         }
     }
 }

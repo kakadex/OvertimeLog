@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.OutlinedTextField
@@ -26,6 +27,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -34,9 +36,11 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -45,6 +49,8 @@ import com.overtimelog.core.model.OvertimeType
 import com.overtimelog.core.model.SalaryMode
 import com.overtimelog.data.settings.BreakUnit
 import com.overtimelog.data.settings.ThemeMode
+import com.overtimelog.data.update.ReleaseChannels
+import com.overtimelog.domain.model.UpdateState
 import com.overtimelog.BuildConfig
 import com.overtimelog.di.AppContainer
 import com.overtimelog.ui.common.BreakTime
@@ -52,10 +58,12 @@ import com.overtimelog.ui.common.DateTexts
 import com.overtimelog.ui.common.Durations
 import com.overtimelog.ui.common.Money
 import com.overtimelog.ui.common.label
+import com.overtimelog.ui.common.openWebPage
 import com.overtimelog.ui.components.ConfirmDialog
 import com.overtimelog.ui.components.InfoRow
 import com.overtimelog.ui.components.SectionCard
 import com.overtimelog.ui.components.TimePickerModal
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 
 /**
@@ -72,11 +80,21 @@ fun SettingsScreen(
     val viewModel: SettingsViewModel = viewModel(factory = SettingsViewModel.factory(container))
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val rule by viewModel.rule.collectAsStateWithLifecycle()
+    val updateState by viewModel.updateState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var showClearConfirm by remember { mutableStateOf(false) }
     var editingTime by remember { mutableStateOf<DefaultTimeTarget?>(null) }
     var showBreakDialog by remember { mutableStateOf(false) }
     var breakInput by remember { mutableStateOf("") }
+
+    // 设备上没有浏览器时给一句提示，避免点了"发布页"像没反应
+    val openPage: (String) -> Unit = { url ->
+        if (!context.openWebPage(url)) {
+            scope.launch { snackbarHostState.showSnackbar("没有找到可用的浏览器，请手动访问发布页") }
+        }
+    }
 
     // 默认上下班时间决定的默认工时长（跨天按次日算），让用户一眼看到改时间的效果。
     val defaultStartMinutes = settings.defaultStartTime.hour * 60 + settings.defaultStartTime.minute
@@ -287,13 +305,104 @@ fun SettingsScreen(
                 SectionCard(title = "隐私与关于") {
                     Column {
                         Text(
-                            text = "所有加班记录只保存在这台手机上，应用不联网、不上传任何数据。",
+                            text = "所有加班记录只保存在这台手机上；只在检查更新时读取公开的版本号，不上传任何数据。",
                             style = MaterialTheme.typography.bodyMedium,
                         )
                         Spacer(Modifier.height(6.dp))
                         TextButton(onClick = onOpenPrivacy) { Text("查看隐私说明") }
                         TextButton(onClick = onOpenLicense) { Text("开源许可（MIT）") }
                         InfoRow("版本", "${BuildConfig.VERSION_NAME}（build ${BuildConfig.VERSION_CODE}）")
+                    }
+                }
+            }
+
+            item {
+                SectionCard(title = "更新") {
+                    Column {
+                        val checking = updateState == UpdateState.Checking
+                        Text(
+                            text = when (val state = updateState) {
+                                UpdateState.Idle ->
+                                    "当前版本 ${BuildConfig.VERSION_NAME}（build ${BuildConfig.VERSION_CODE}）"
+                                UpdateState.Checking -> "正在检查…"
+                                UpdateState.UpToDate -> "已是最新版本 ${BuildConfig.VERSION_NAME}"
+                                is UpdateState.Available ->
+                                    "发现新版本 ${state.release.version}（来自 ${state.release.source.label()}）"
+                                is UpdateState.Failed ->
+                                    if (state.silent) {
+                                        "当前版本 ${BuildConfig.VERSION_NAME}（build ${BuildConfig.VERSION_CODE}）"
+                                    } else {
+                                        "检查失败：${state.message}"
+                                    }
+                            },
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedButton(
+                            onClick = viewModel::checkUpdate,
+                            enabled = !checking,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(if (checking) "正在检查…" else "检查更新")
+                        }
+
+                        (updateState as? UpdateState.Available)?.let { available ->
+                            Spacer(Modifier.height(8.dp))
+                            Button(
+                                onClick = { openPage(available.release.pageUrl) },
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Text("前往下载 ${available.release.version}")
+                            }
+                        }
+
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp))
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("启动时自动检查更新", style = MaterialTheme.typography.bodyMedium)
+                                Text(
+                                    text = "只在启动时读取公开的版本号，不发记录、不上传数据。",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            Switch(
+                                checked = settings.updateCheckOnStartup,
+                                onCheckedChange = viewModel::setUpdateCheckOnStartup,
+                            )
+                        }
+                    }
+                }
+            }
+
+            item {
+                SectionCard(title = "下载") {
+                    Column {
+                        Text(
+                            text = "发布页可以下载最新 APK、历史版本和 SHA-256 校验清单。",
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedButton(
+                            onClick = { openPage(ReleaseChannels.GITEE_RELEASES_PAGE) },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text("Gitee 发布页（国内推荐）")
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedButton(
+                            onClick = { openPage(ReleaseChannels.GITHUB_RELEASES_PAGE) },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text("GitHub 发布页")
+                        }
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            text = "检查更新优先读 Gitee，连不上时自动改用 GitHub。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                 }
             }

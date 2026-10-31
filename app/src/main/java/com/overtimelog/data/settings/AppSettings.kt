@@ -60,6 +60,8 @@ data class AppSettings(
     val defaultStartTime: LocalTime = LocalTime.of(18, 0),
     val defaultEndTime: LocalTime = LocalTime.of(21, 0),
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
+    /** 启动时静默检查更新。默认开启；关掉后只能到设置里手动检查。 */
+    val updateCheckOnStartup: Boolean = true,
     val hasSeenPrivacyNotice: Boolean = false,
     val reminderEnabled: Boolean = false,
     val reminderHour: Int = 18,
@@ -81,6 +83,7 @@ class DataStoreSettingsRepository(context: Context) : SettingsRepository {
             defaultStartTime = minutesOfDayToTime(prefs[KEY_DEFAULT_START] ?: DEFAULT_START_MINUTES),
             defaultEndTime = minutesOfDayToTime(prefs[KEY_DEFAULT_END] ?: DEFAULT_END_MINUTES),
             themeMode = ThemeMode.fromCode(prefs[KEY_THEME]),
+            updateCheckOnStartup = prefs[KEY_UPDATE_CHECK_ON_STARTUP] ?: true,
             hasSeenPrivacyNotice = prefs[KEY_SEEN_PRIVACY] ?: false,
             reminderEnabled = prefs[KEY_REMINDER_ENABLED] ?: false,
             reminderHour = prefs[KEY_REMINDER_HOUR] ?: 18,
@@ -109,6 +112,10 @@ class DataStoreSettingsRepository(context: Context) : SettingsRepository {
 
     override suspend fun setThemeMode(mode: ThemeMode) {
         store.edit { it[KEY_THEME] = mode.code }
+    }
+
+    override suspend fun setUpdateCheckOnStartup(enabled: Boolean) {
+        store.edit { it[KEY_UPDATE_CHECK_ON_STARTUP] = enabled }
     }
 
     override suspend fun setPrivacyNoticeSeen() {
@@ -141,6 +148,7 @@ class DataStoreSettingsRepository(context: Context) : SettingsRepository {
         val KEY_DEFAULT_START = intPreferencesKey("default_start_minutes_of_day")
         val KEY_DEFAULT_END = intPreferencesKey("default_end_minutes_of_day")
         val KEY_THEME = stringPreferencesKey("theme_mode")
+        val KEY_UPDATE_CHECK_ON_STARTUP = booleanPreferencesKey("update_check_on_startup")
         val KEY_SEEN_PRIVACY = booleanPreferencesKey("seen_privacy_notice")
         val KEY_REMINDER_ENABLED = booleanPreferencesKey("reminder_enabled")
         val KEY_REMINDER_HOUR = intPreferencesKey("reminder_hour")

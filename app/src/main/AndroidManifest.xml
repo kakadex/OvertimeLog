@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- 只用于"检查更新"：读取 Gitee / GitHub 的公开版本号；不上传任何记录或个人数据。 -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <!-- 不申请存储权限：CSV 导出走系统文件选择器（SAF），见架构文档 ADR-005。 -->
     <application
         android:name=".OvertimeApp"

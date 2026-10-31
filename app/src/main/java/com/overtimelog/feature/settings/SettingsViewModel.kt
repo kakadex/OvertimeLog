@@ -8,6 +8,7 @@ import com.overtimelog.core.model.SalaryRule
 import com.overtimelog.data.settings.AppSettings
 import com.overtimelog.data.settings.ThemeMode
 import com.overtimelog.di.AppContainer
+import com.overtimelog.domain.model.UpdateState
 import com.overtimelog.ui.common.toUiMessage
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.SharingStarted
@@ -29,8 +30,19 @@ class SettingsViewModel(
     val rule: StateFlow<SalaryRule?> = container.salaryRuleRepository.observeActiveRule()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(30_000), null)
 
+    /** 更新检查结果：启动时静默检查与这里手动检查共用同一份状态。 */
+    val updateState: StateFlow<UpdateState> = container.updateChecker.state
+
     private val _events = Channel<String>(Channel.BUFFERED)
     val events = _events.receiveAsFlow()
+
+    fun checkUpdate() {
+        viewModelScope.launch { container.updateChecker.check(silent = false) }
+    }
+
+    fun setUpdateCheckOnStartup(enabled: Boolean) {
+        viewModelScope.launch { container.settingsRepository.setUpdateCheckOnStartup(enabled) }
+    }
 
     fun setDefaultBreakMinutes(minutes: Int) {
         viewModelScope.launch { container.settingsRepository.setDefaultBreakMinutes(minutes) }

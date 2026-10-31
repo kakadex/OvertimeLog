@@ -15,6 +15,7 @@ interface SettingsRepository {
     suspend fun setDefaultTimes(start: LocalTime, end: LocalTime)
     suspend fun setDefaultOvertimeType(type: OvertimeType)
     suspend fun setThemeMode(mode: ThemeMode)
+    suspend fun setUpdateCheckOnStartup(enabled: Boolean)
     suspend fun setPrivacyNoticeSeen()
     suspend fun setReminderEnabled(enabled: Boolean)
     suspend fun setReminderTime(hour: Int, minute: Int)

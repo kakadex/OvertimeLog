@@ -3,6 +3,7 @@ package com.overtimelog.ui.common
 import com.overtimelog.core.model.CompTimeMode
 import com.overtimelog.core.model.OvertimeType
 import com.overtimelog.core.model.SettlementStatus
+import com.overtimelog.domain.model.UpdateSource
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.time.LocalDate
@@ -93,4 +94,9 @@ fun CompTimeMode.label(): String = when (this) {
     CompTimeMode.RATIO_1_1 -> "1:1"
     CompTimeMode.RATIO_1_1_5 -> "1:1.5"
     CompTimeMode.MANUAL -> "手动填写"
+}
+
+fun UpdateSource.label(): String = when (this) {
+    UpdateSource.GITEE -> "Gitee"
+    UpdateSource.GITHUB -> "GitHub"
 }

@@ -63,7 +63,7 @@ private fun FirstLaunchPrivacyDialog(container: AppContainer) {
         title = { Text("先说清楚：数据只存本机") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("加班记不联网、不上传任何数据。你的加班记录、薪资规则、调休记录都保存在这台手机上。")
+                Text("加班记的记录只保存在这台手机上。除检查更新时读取公开的版本号外，不联网、不上传任何数据。")
                 Text("卸载应用或清除数据后，内容会一起删除，建议定期在设置里导出 CSV。")
                 Text("加班费是按你填写的规则估算的，仅供参考，不代表公司实际结算。")
             }

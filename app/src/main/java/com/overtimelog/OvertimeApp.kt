@@ -16,5 +16,7 @@ class OvertimeApp : Application() {
     override fun onCreate() {
         super.onCreate()
         container = AppContainer(this)
+        // 启动时静默检查更新（受设置开关控制，失败不弹任何提示）
+        container.checkForUpdatesOnLaunch()
     }
 }
