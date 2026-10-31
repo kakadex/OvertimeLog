@@ -26,6 +26,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -115,17 +116,28 @@ fun CalendarScreen(
                 title = { Text("日历") },
                 actions = {
                     if (!isToday) {
-                        // 圆形"今"按钮：只在一眼看不回今天时才出现，避免平时占位
+                        // 圆形"今"按钮：
+                        // - 距右边框 0.5cm（≈21dp），不贴边
+                        // - 相对标题栏顶部再下移 0.3cm（≈31px / 约 12-13dp 的额外偏移）
+                        // - 文字与"日历"标题同字号，淡蓝底
+                        Spacer(Modifier.width(21.dp))
                         FilledTonalIconButton(
                             onClick = viewModel::backToToday,
-                            modifier = Modifier.size(36.dp),
+                            modifier = Modifier
+                                .padding(top = 39.dp)
+                                .size(40.dp),
+                            colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            ),
                         ) {
                             Text(
                                 text = "今",
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.SemiBold,
+                                // 与 TopAppBar 标题同用 titleLarge，字号一致
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Medium,
                             )
                         }
+                        Spacer(Modifier.width(21.dp))
                     }
                 },
             )
