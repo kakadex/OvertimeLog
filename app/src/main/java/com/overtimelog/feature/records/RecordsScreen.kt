@@ -18,14 +18,12 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -69,7 +67,6 @@ import java.time.YearMonth
 fun RecordsScreen(
     container: AppContainer,
     onOpenRecord: (Long) -> Unit,
-    onAddRecord: () -> Unit,
 ) {
     val viewModel: RecordsViewModel = viewModel(factory = RecordsViewModel.factory(container))
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -102,11 +99,6 @@ fun RecordsScreen(
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        floatingActionButton = {
-            FloatingActionButton(onClick = onAddRecord) {
-                Icon(Icons.Default.Add, contentDescription = "记一笔")
-            }
-        },
     ) { padding ->
         Column(
             modifier = Modifier
@@ -181,13 +173,13 @@ fun RecordsScreen(
             if (state.isEmpty) {
                 EmptyState(
                     text = if (state.filter.keyword.isNotBlank()) "没有匹配「${state.filter.keyword}」的记录"
-                    else "这个月还没有记录",
+                    else "这个月还没有记录，到「日历」页点「这天记一笔」开始",
                     modifier = Modifier.padding(top = 24.dp),
                 )
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
+                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     items(state.records, key = { it.id }) { record ->

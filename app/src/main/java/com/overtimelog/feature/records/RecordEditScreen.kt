@@ -57,6 +57,7 @@ import com.overtimelog.ui.common.BreakTime
 import com.overtimelog.ui.common.DateTexts
 import com.overtimelog.ui.common.Durations
 import com.overtimelog.ui.common.Money
+import com.overtimelog.ui.common.SimpleHours
 import com.overtimelog.ui.common.label
 import com.overtimelog.ui.components.ConfirmDialog
 import com.overtimelog.ui.components.DatePickerModal
@@ -110,6 +111,14 @@ fun RecordEditScreen(
                 navigationIcon = {
                     IconButton(onClick = onDone) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "返回")
+                    }
+                },
+                actions = {
+                    // 新增时才给切换入口：编辑老记录按它自己的方式来，避免改个备注把数据形态改了
+                    if (!state.isEditing) {
+                        TextButton(onClick = { viewModel.onSimpleModeToggle(!state.simpleMode) }) {
+                            Text(if (state.usesSimpleEntry) "计时" else "简单记")
+                        }
                     }
                 },
             )
@@ -201,54 +210,91 @@ fun RecordEditScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item {
-                SectionCard(title = "时间") {
-                    Column {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { showDatePicker = true }
-                                .padding(vertical = 10.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                        ) {
-                            Text("日期", style = MaterialTheme.typography.bodyMedium)
-                            Text(DateTexts.full(state.date), color = MaterialTheme.colorScheme.primary)
-                        }
-                        HorizontalDivider()
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                        ) {
-                            TimeRow("开始时间", state.start) { editingTime = TimeTarget.START }
-                            TimeRow("结束时间", state.end) { editingTime = TimeTarget.END }
-                        }
-                        if (!state.end.isAfter(state.start)) {
+                // 简单记模式：日期 + 一个"加班小时数"输入框，没有上下班时间和休息扣除。
+                // 计时模式的"时间"卡片、休息扣除输入框都不再出现，减少一整屏的输入量。
+                if (state.usesSimpleEntry) {
+                    SectionCard(title = "时间") {
+                        Column {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { showDatePicker = true }
+                                    .padding(vertical = 10.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                Text("日期", style = MaterialTheme.typography.bodyMedium)
+                                Text(DateTexts.full(state.date), color = MaterialTheme.colorScheme.primary)
+                            }
+                            HorizontalDivider()
+                            Spacer(Modifier.height(8.dp))
+                            OutlinedTextField(
+                                value = state.simpleHoursText,
+                                onValueChange = viewModel::onSimpleHoursChange,
+                                label = { Text("当天加班小时数") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                singleLine = true,
+                                isError = state.simpleHoursText.isNotBlank() && state.simpleMinutes == null,
+                                supportingText = { Text(SimpleHours.hint(state.simpleHoursText)) },
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            Spacer(Modifier.height(6.dp))
                             Text(
-                                text = "结束时间早于开始时间，将按次日计算",
+                                text = "简单记只算总时长，不记录上下班时间；想要按起止时间算，请在右上角切回「计时」。",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.tertiary,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
-                        Spacer(Modifier.height(8.dp))
-                        OutlinedTextField(
-                            value = state.breakText,
-                            onValueChange = viewModel::onBreakChange,
-                            label = { Text("休息扣除（${BreakTime.unitLabel(state.breakUnit)}）") },
-                            keyboardOptions = KeyboardOptions(
-                                keyboardType = if (state.breakUnit == BreakUnit.HOURS) {
-                                    KeyboardType.Decimal
-                                } else {
-                                    KeyboardType.Number
-                                },
-                            ),
-                            singleLine = true,
-                            supportingText = {
+                    }
+                } else {
+                    SectionCard(title = "时间") {
+                        Column {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { showDatePicker = true }
+                                    .padding(vertical = 10.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                Text("日期", style = MaterialTheme.typography.bodyMedium)
+                                Text(DateTexts.full(state.date), color = MaterialTheme.colorScheme.primary)
+                            }
+                            HorizontalDivider()
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                TimeRow("开始时间", state.start) { editingTime = TimeTarget.START }
+                                TimeRow("结束时间", state.end) { editingTime = TimeTarget.END }
+                            }
+                            if (!state.end.isAfter(state.start)) {
                                 Text(
-                                    BreakTime.hint(state.breakText, state.breakUnit)
-                                        ?: "单位可在「设置 → 录入默认值」里切换",
+                                    text = "结束时间早于开始时间，将按次日计算",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.tertiary,
                                 )
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                        )
+                            }
+                            Spacer(Modifier.height(8.dp))
+                            OutlinedTextField(
+                                value = state.breakText,
+                                onValueChange = viewModel::onBreakChange,
+                                label = { Text("休息扣除（${BreakTime.unitLabel(state.breakUnit)}）") },
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = if (state.breakUnit == BreakUnit.HOURS) {
+                                        KeyboardType.Decimal
+                                    } else {
+                                        KeyboardType.Number
+                                    },
+                                ),
+                                singleLine = true,
+                                supportingText = {
+                                    Text(
+                                        BreakTime.hint(state.breakText, state.breakUnit)
+                                            ?: "单位可在「设置 → 录入默认值」里切换",
+                                    )
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
                     }
                 }
             }
@@ -370,6 +416,14 @@ fun RecordEditScreen(
                             InfoRow("预计加班费", Money.format(preview.amountCents))
                             if (preview.compTimeMinutes > 0) {
                                 InfoRow("折算调休", Durations.text(preview.compTimeMinutes))
+                            }
+                            if (state.usesSimpleEntry && state.error != null) {
+                                Spacer(Modifier.height(6.dp))
+                                Text(
+                                    text = state.error.orEmpty(),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error,
+                                )
                             }
                             if (state.warning != null) {
                                 Spacer(Modifier.height(6.dp))

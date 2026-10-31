@@ -64,6 +64,7 @@ import com.overtimelog.ui.common.BreakTime
 import com.overtimelog.ui.common.DateTexts
 import com.overtimelog.ui.common.Durations
 import com.overtimelog.ui.common.Money
+import com.overtimelog.ui.common.SimpleHours
 import com.overtimelog.ui.common.label
 import com.overtimelog.ui.common.openWebPage
 import com.overtimelog.ui.components.ConfirmDialog
@@ -98,6 +99,8 @@ fun SettingsScreen(
     var editingTime by remember { mutableStateOf<DefaultTimeTarget?>(null) }
     var showBreakDialog by remember { mutableStateOf(false) }
     var breakInput by remember { mutableStateOf("") }
+    var showSimpleHoursDialog by remember { mutableStateOf(false) }
+    var simpleHoursInput by remember { mutableStateOf("3") }
 
     // 设备上没有浏览器时给一句提示，避免点了"发布页"像没反应
     val openPage: (String) -> Unit = { url ->
@@ -181,8 +184,50 @@ fun SettingsScreen(
             }
 
             item {
-                SectionCard(title = "录入默认值") {
+                SectionCard(
+                    title = "录入默认值",
+                    // 「简单记模式」按需求放在"录入默认值"的右侧：标题一行两边各一个入口
+                    trailing = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "简单记模式",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Switch(
+                                checked = settings.simpleEntryMode,
+                                onCheckedChange = viewModel::setSimpleEntryMode,
+                            )
+                        }
+                    },
+                ) {
                     Column {
+                        // 开着简单记时，默认上下班时间/休息扣除暂时用不上，
+                        // 折叠成一行说明，避免设置页出现一整块"现在没意义"的选项。
+                        if (settings.simpleEntryMode) {
+                            Text(
+                                text = "简单记已开启：点「这天记一笔」只填当天加班小时数，不填上下班时间和休息扣除。",
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                            Spacer(Modifier.height(10.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text("默认加班小时数", style = MaterialTheme.typography.bodyMedium)
+                                TextButton(
+                                    onClick = {
+                                        simpleHoursInput = settings.defaultSimpleHours
+                                        showSimpleHoursDialog = true
+                                    },
+                                ) {
+                                    Text("${settings.defaultSimpleHours} 小时")
+                                }
+                            }
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp))
+                        }
+
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -555,6 +600,44 @@ fun SettingsScreen(
                 editingTime = null
             },
             onDismiss = { editingTime = null },
+        )
+    }
+
+    if (showSimpleHoursDialog) {
+        val parsed = SimpleHours.parseMinutes(simpleHoursInput)
+        AlertDialog(
+            onDismissRequest = { showSimpleHoursDialog = false },
+            title = { Text("默认加班小时数") },
+            text = {
+                OutlinedTextField(
+                    value = simpleHoursInput,
+                    onValueChange = { if (it.length <= 6) simpleHoursInput = it },
+                    label = { Text("小时数（可带小数）") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    singleLine = true,
+                    isError = simpleHoursInput.isNotBlank() && parsed == null,
+                    supportingText = {
+                        Text(
+                            if (parsed != null) "= ${Durations.text(parsed)}，新记录会预填这个数"
+                            else "填 0 到 24 之间的小时数，例如 2 或 2.5",
+                        )
+                    },
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        if (parsed != null) {
+                            viewModel.setDefaultSimpleHours(simpleHoursInput.trim())
+                            showSimpleHoursDialog = false
+                        }
+                    },
+                    enabled = parsed != null,
+                ) { Text("保存") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSimpleHoursDialog = false }) { Text("取消") }
+            },
         )
     }
 

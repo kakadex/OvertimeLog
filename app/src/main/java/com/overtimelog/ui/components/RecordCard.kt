@@ -72,11 +72,13 @@ fun RecordCard(
                 Text(
                     // 倍率跟时长一样属于"这条记录怎么算出来的"，放同一行；
                     // 右侧只留金额和结算状态，状态才能安稳地待在金额下面。
+                    // 简单记的记录没有真实上下班时间，不显示时间区间，只给时长和倍率。
                     text = listOf(
-                        DateTexts.range(record.start.toLocalTime(), record.end.toLocalTime()),
+                        if (record.isSimpleEntry) null
+                        else DateTexts.range(record.start.toLocalTime(), record.end.toLocalTime()),
                         Durations.text(record.durationMinutes),
                         "${record.multiplierBp / 1000.0} 倍",
-                    ).joinToString(" · "),
+                    ).filterNotNull().joinToString(" · "),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

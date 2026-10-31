@@ -142,6 +142,14 @@ class SettingsViewModel(
         viewModelScope.launch { container.settingsRepository.setDefaultOvertimeType(type) }
     }
 
+    fun setSimpleEntryMode(enabled: Boolean) {
+        viewModelScope.launch { container.settingsRepository.setSimpleEntryMode(enabled) }
+    }
+
+    fun setDefaultSimpleHours(text: String) {
+        viewModelScope.launch { container.settingsRepository.setDefaultSimpleHours(text) }
+    }
+
     fun setTheme(mode: ThemeMode) {
         viewModelScope.launch { container.settingsRepository.setThemeMode(mode) }
     }

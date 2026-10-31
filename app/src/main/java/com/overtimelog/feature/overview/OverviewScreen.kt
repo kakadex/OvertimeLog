@@ -17,13 +17,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExtendedFloatingActionButton
-import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -42,8 +38,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -74,7 +68,6 @@ import java.time.YearMonth
 @Composable
 fun OverviewScreen(
     container: AppContainer,
-    onAddRecord: () -> Unit,
     onOpenRecord: (Long) -> Unit,
     onOpenAllRecords: () -> Unit,
     onOpenCompTime: () -> Unit,
@@ -106,22 +99,12 @@ fun OverviewScreen(
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = onAddRecord,
-                // 显式给无障碍描述：读屏能念出"记一笔"，自动化冒烟脚本也能稳定找到这个按钮
-                // （Compose 的 FAB 文字默认不一定出现在语义树里）。
-                modifier = Modifier.semantics { contentDescription = "记一笔" },
-                icon = { Icon(Icons.Default.Add, contentDescription = null) },
-                text = { Text("记一笔") },
-            )
-        },
     ) { padding ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 96.dp),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             val updateToShow = availableUpdate?.takeIf { it.tag != dismissedUpdateTag }
@@ -227,7 +210,7 @@ fun OverviewScreen(
                     },
                 ) {
                     if (state.recent.isEmpty()) {
-                        EmptyState("这个月还没有加班记录，点右下角「记一笔」开始")
+                        EmptyState("这个月还没有加班记录，到「日历」页点「这天记一笔」开始")
                     } else {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             state.recent.forEach { record ->

@@ -54,6 +54,7 @@ object Mappers {
         ruleSnapshotJson = ruleSnapshotJson,
         createdAt = Instant.ofEpochMilli(createdAt),
         updatedAt = Instant.ofEpochMilli(updatedAt),
+        isSimpleEntry = isSimpleEntry,
     )
 
     fun OvertimeRecord.toEntity(): OvertimeRecordEntity = OvertimeRecordEntity(
@@ -76,6 +77,7 @@ object Mappers {
         ruleSnapshotJson = ruleSnapshotJson,
         createdAt = createdAt.toEpochMilli(),
         updatedAt = updatedAt.toEpochMilli(),
+        isSimpleEntry = isSimpleEntry,
     )
 
     fun SalaryRuleEntity.toDomain(): SalaryRule = SalaryRule(

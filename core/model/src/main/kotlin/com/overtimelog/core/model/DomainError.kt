@@ -10,6 +10,8 @@ sealed class DomainError : Throwable() {
     data object InvalidBreak : DomainError()
     data object BreakExceedsDuration : DomainError()
     data object DurationTooLong : DomainError()
+    /** 「简单记模式」下只填了小时数，但小时数不合法（<=0 或超过 24 小时）。 */
+    data object InvalidDuration : DomainError()
     data object RuleNotConfigured : DomainError()
     data object NoteTooLong : DomainError()
     data object InvalidAmount : DomainError()
@@ -23,6 +25,7 @@ sealed class DomainError : Throwable() {
             is InvalidBreak -> "休息时长只能是 0 到 1439 分钟"
             is BreakExceedsDuration -> "休息时长不能大于等于总时长"
             is DurationTooLong -> "单条记录不能超过 24 小时"
+            is InvalidDuration -> "加班时长要大于 0 且不超过 24 小时"
             is RuleNotConfigured -> "薪资规则还没配置"
             is NoteTooLong -> "备注最多 200 字"
             is InvalidAmount -> "金额或分钟数不合法"

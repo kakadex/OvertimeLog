@@ -34,6 +34,13 @@ data class OvertimeRecord(
     val ruleSnapshotJson: String = "",
     val createdAt: Instant = Instant.now(),
     val updatedAt: Instant = Instant.now(),
+    /**
+     * 这条记录是"简单记"录的：只填了加班小时数，没有真实的上下班时间。
+     *
+     * 为 true 时 [start]/[end] 只是占位（当天 00:00 起、按时长往后推），
+     * 列表和导出都不显示具体时刻，避免让用户看到自己没填过的时间。
+     */
+    val isSimpleEntry: Boolean = false,
 ) {
     /** 时长展示成 "2 小时 30 分"，列表和预览共用，避免各页面各写一套。 */
     val durationText: String

@@ -17,6 +17,13 @@ data class CalculationInput(
     val manualAmountCents: Long? = null,
     /** 手动填调休分钟数，仅在 [CompTimeMode.MANUAL] 下生效。 */
     val manualCompTimeMinutes: Int? = null,
+    /**
+     * 「简单记模式」：用户直接填的加班分钟数。
+     *
+     * 非空时完全不看 [start]、[end]、[breakMinutes]，时长就用这个值 ——
+     * 这正是"不想填上下班时间"的场景要的效果，且金额仍由同一个引擎算，不会出现两套算法。
+     */
+    val simpleDurationMinutes: Int? = null,
 )
 
 /** 计算结果。录入页的实时预览和最终落库用的是同一个方法，所以两者不会算出两个数。 */

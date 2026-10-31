@@ -46,10 +46,14 @@ class CsvExporter(private val sink: UriSink) {
     }
 
     private fun OvertimeRecord.toCsvRow(): String {
+        // 简单记的记录没有真实上下班时间：开始/结束时间列留空，时长列照常导出，
+        // 这样在 Excel 里一眼就能区分"填过时间"和"只填了小时数"的记录。
+        val startTimeText = if (isSimpleEntry) "" else start.format(TIME_FORMAT)
+        val endTimeText = if (isSimpleEntry) "" else end.format(TIME_FORMAT)
         val cells = listOf(
             date.format(DATE_FORMAT),
-            start.format(TIME_FORMAT),
-            end.format(TIME_FORMAT),
+            startTimeText,
+            endTimeText,
             breakMinutes.toString(),
             type.displayName(),
             durationMinutes.toString(),

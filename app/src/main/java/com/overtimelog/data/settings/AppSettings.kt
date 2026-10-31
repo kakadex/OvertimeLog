@@ -60,6 +60,14 @@ data class AppSettings(
     /** 默认上班、下班时间，新建记录时直接带出来。 */
     val defaultStartTime: LocalTime = LocalTime.of(18, 0),
     val defaultEndTime: LocalTime = LocalTime.of(21, 0),
+    /**
+     * 「简单记模式」：录入页只填当天加班小时数，不问上下班时间、不扣休息。
+     *
+     * 默认关闭，保持原来的计时录入；老用户不受影响，开关只在本地偏好里，随时可切回。
+     */
+    val simpleEntryMode: Boolean = false,
+    /** 简单记模式的默认小时数，新建记录时预填，省得每次从空开始。 */
+    val defaultSimpleHours: String = "3",
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     /** 启动时静默检查更新。默认开启；关掉后只能到设置里手动检查。 */
     val updateCheckOnStartup: Boolean = true,
@@ -96,6 +104,8 @@ class DataStoreSettingsRepository(context: Context) : SettingsRepository {
             defaultOvertimeType = OvertimeType.fromCode(prefs[KEY_DEFAULT_TYPE] ?: OvertimeType.WORKDAY.code),
             defaultStartTime = minutesOfDayToTime(prefs[KEY_DEFAULT_START] ?: DEFAULT_START_MINUTES),
             defaultEndTime = minutesOfDayToTime(prefs[KEY_DEFAULT_END] ?: DEFAULT_END_MINUTES),
+            simpleEntryMode = prefs[KEY_SIMPLE_ENTRY_MODE] ?: false,
+            defaultSimpleHours = prefs[KEY_DEFAULT_SIMPLE_HOURS] ?: "3",
             themeMode = ThemeMode.fromCode(prefs[KEY_THEME]),
             updateCheckOnStartup = prefs[KEY_UPDATE_CHECK_ON_STARTUP] ?: true,
             dayOverrides = prefs[KEY_DAY_OVERRIDES]
@@ -130,6 +140,14 @@ class DataStoreSettingsRepository(context: Context) : SettingsRepository {
 
     override suspend fun setDefaultOvertimeType(type: OvertimeType) {
         store.edit { it[KEY_DEFAULT_TYPE] = type.code }
+    }
+
+    override suspend fun setSimpleEntryMode(enabled: Boolean) {
+        store.edit { it[KEY_SIMPLE_ENTRY_MODE] = enabled }
+    }
+
+    override suspend fun setDefaultSimpleHours(text: String) {
+        store.edit { it[KEY_DEFAULT_SIMPLE_HOURS] = text.take(6) }
     }
 
     override suspend fun setThemeMode(mode: ThemeMode) {
@@ -198,6 +216,8 @@ class DataStoreSettingsRepository(context: Context) : SettingsRepository {
         val KEY_DEFAULT_TYPE = stringPreferencesKey("default_overtime_type")
         val KEY_DEFAULT_START = intPreferencesKey("default_start_minutes_of_day")
         val KEY_DEFAULT_END = intPreferencesKey("default_end_minutes_of_day")
+        val KEY_SIMPLE_ENTRY_MODE = booleanPreferencesKey("simple_entry_mode")
+        val KEY_DEFAULT_SIMPLE_HOURS = stringPreferencesKey("default_simple_hours")
         val KEY_THEME = stringPreferencesKey("theme_mode")
         val KEY_UPDATE_CHECK_ON_STARTUP = booleanPreferencesKey("update_check_on_startup")
         val KEY_DAY_OVERRIDES = stringSetPreferencesKey("day_overrides")

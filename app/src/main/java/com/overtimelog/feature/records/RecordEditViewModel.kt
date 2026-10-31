@@ -13,6 +13,7 @@ import com.overtimelog.data.settings.BreakUnit
 import com.overtimelog.di.AppContainer
 import com.overtimelog.domain.model.OvertimeDraft
 import com.overtimelog.ui.common.BreakTime
+import com.overtimelog.ui.common.SimpleHours
 import com.overtimelog.ui.common.toUiMessage
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -41,6 +42,13 @@ data class RecordEditUiState(
     val breakText: String = "0",
     /** 休息扣除的输入单位，来自设置；只影响显示与解析，落库永远是分钟。 */
     val breakUnit: BreakUnit = BreakUnit.HOURS,
+    /**
+     * 「简单记模式」：开着的时侯录入页只显示"加班小时数"一个输入框，
+     * 上下班时间和休息扣除整块隐藏，也不再参与计算。
+     */
+    val simpleMode: Boolean = false,
+    /** 简单记模式下用户填的小时数（原文），例如 "2.5"。 */
+    val simpleHoursText: String = "3",
     val type: OvertimeType = OvertimeType.WORKDAY,
     val compTimeMode: CompTimeMode = CompTimeMode.NONE,
     val manualAmountText: String = "",
@@ -52,7 +60,22 @@ data class RecordEditUiState(
     val ruleMissing: Boolean = false,
     val saving: Boolean = false,
     val error: String? = null,
-)
+    /** 编辑已有记录时，那条记录本身是不是「简单记」录的。 */
+    val editingSimpleOrigin: Boolean = false,
+) {
+    /** 简单记模式下小时数解析出来的分钟数；空串或格式不对时为 null。 */
+    val simpleMinutes: Int?
+        get() = SimpleHours.parseMinutes(simpleHoursText)
+
+    /**
+     * 是否以简单记方式保存。
+     *
+     * 编辑一条老的计时记录时，即使设置里开着简单记，也沿用那条记录原来的方式，
+     * 避免"只想改个备注"却把时间信息抹掉。
+     */
+    val usesSimpleEntry: Boolean
+        get() = simpleMode && (!isEditing || editingSimpleOrigin)
+}
 
 sealed interface RecordEditEvent {
     data class Saved(val recordId: Long) : RecordEditEvent
@@ -97,6 +120,9 @@ class RecordEditViewModel(
                         breakUnit = settings.breakUnit,
                         breakText = BreakTime.format(settings.defaultBreakMinutes, settings.breakUnit),
                         type = settings.defaultOvertimeType,
+                        simpleMode = settings.simpleEntryMode,
+                        simpleHoursText = settings.defaultSimpleHours,
+                        editingSimpleOrigin = false,
                     )
                 }
                 refreshPreview()
@@ -121,6 +147,14 @@ class RecordEditViewModel(
                             }.orEmpty(),
                             note = record.note,
                             settled = record.settlementStatus == SettlementStatus.SETTLED,
+                            // 简单记的旧记录：用时长回填，编辑时还能看到原来的小时数
+                            simpleMode = record.isSimpleEntry,
+                            simpleHoursText = if (record.isSimpleEntry) {
+                                SimpleHours.format(record.durationMinutes)
+                            } else {
+                                settings.defaultSimpleHours
+                            },
+                            editingSimpleOrigin = record.isSimpleEntry,
                         )
                     }
                     refreshPreview()
@@ -149,6 +183,19 @@ class RecordEditViewModel(
         val limit = if (_state.value.breakUnit == BreakUnit.HOURS) 6 else 4
         if (text.length > limit) return
         _state.update { it.copy(breakText = text) }
+        refreshPreview()
+    }
+
+    /** 简单记模式：用户直接填当天加班小时数。 */
+    fun onSimpleHoursChange(text: String) {
+        if (text.length > 6) return
+        _state.update { it.copy(simpleHoursText = text) }
+        refreshPreview()
+    }
+
+    /** 录入页顶部在两种模式之间切换（不影响设置里的默认值）。 */
+    fun onSimpleModeToggle(enabled: Boolean) {
+        _state.update { it.copy(simpleMode = enabled) }
         refreshPreview()
     }
 
@@ -187,9 +234,19 @@ class RecordEditViewModel(
         _state.update { it.copy(error = null) }
     }
 
+    /**
+     * 校验失败的提示。
+     *
+     * 同时写进 state 和事件流：state 用于页面上常驻的红字，事件流让页面弹一次 Snackbar，
+     * 保证用户点了"保存"一定看得到反馈（以前只写 state，而录入页根本没人读它）。
+     */
+    private fun _emitError(text: String) {
+        _state.update { it.copy(error = text) }
+        _events.trySend(RecordEditEvent.Message(text))
+    }
+
     private fun draftOrNull(): OvertimeDraft? {
         val s = _state.value
-        val breakMinutes = BreakTime.parse(s.breakText, s.breakUnit) ?: return null
         val manualAmountCents = if (s.manualAmountText.isBlank()) {
             null
         } else {
@@ -200,6 +257,9 @@ class RecordEditViewModel(
         } else {
             null
         }
+        // 简单记模式：只把小时数换算成分钟交出去，起止时间/休息一律不参与
+        val simple = s.usesSimpleEntry
+        val breakMinutes = if (simple) 0 else (BreakTime.parse(s.breakText, s.breakUnit) ?: return null)
         return OvertimeDraft(
             date = s.date,
             startTime = s.start,
@@ -211,12 +271,19 @@ class RecordEditViewModel(
             settlementStatus = if (s.settled) SettlementStatus.SETTLED else SettlementStatus.UNSETTLED,
             manualAmountCents = manualAmountCents,
             manualCompTimeMinutes = manualCompMinutes,
+            simpleDurationMinutes = if (simple) SimpleHours.parseMinutes(s.simpleHoursText) else null,
         )
     }
 
     private fun refreshPreview() {
         previewJob?.cancel()
-        val draft = draftOrNull() ?: return
+        val draft = draftOrNull()
+        if (draft == null) {
+            // 输入还不完整（比如简单记里小时数删空了）：清掉旧预览，
+            // 免得屏幕上还挂着上一次算出来的金额，看起来像"已经填对了"。
+            _state.update { it.copy(preview = null, warning = null) }
+            return
+        }
         previewJob = viewModelScope.launch {
             container.calculatePreview(draft).fold(
                 onSuccess = { result ->
@@ -242,9 +309,20 @@ class RecordEditViewModel(
     }
 
     fun save(allowOverdraft: Boolean = false) {
+        val state = _state.value
+        if (state.usesSimpleEntry && state.simpleMinutes == null) {
+            _emitError("请填写 0 到 24 之间的加班小时数，例如 2 或 2.5")
+            return
+        }
         val draft = draftOrNull()
         if (draft == null) {
-            _state.update { it.copy(error = "休息分钟或金额格式不对，请检查") }
+            _emitError(
+                if (state.usesSimpleEntry) {
+                    "金额格式不对，请检查（或清空留白）"
+                } else {
+                    "休息分钟或金额格式不对，请检查"
+                },
+            )
             return
         }
         viewModelScope.launch {

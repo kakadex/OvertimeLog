@@ -66,24 +66,40 @@ class CalculationEngine {
      *
      * 注意：这里不做"是否允许保存"的裁决 —— 休息时长非法等情况只放进 [CalculationResult.warnings]，
      * 由用例层决定拒绝保存。这样录入页可以边输入边显示提示，而不是输入到一半就弹错。
+     *
+     * 两种录入方式走同一套金额/调休算法：
+     * - 计时录入：按 [CalculationInput.start] 与 [CalculationInput.end] 相减再扣休息；
+     * - 简单记（[CalculationInput.simpleDurationMinutes] 非空）：时长直接用用户填的分钟数，
+     *   不读起止时间、不扣休息，所以也不会有"跨天""休息超时长"这类提示。
      */
     fun calculate(input: CalculationInput): CalculationResult {
         val warnings = mutableListOf<CalcWarning>()
 
-        val duration = calculateDuration(input.start, input.end, input.breakMinutes)
-        if (duration.crossDay) {
-            warnings += CalcWarning.EndBeforeStartTreatedAsNextDay
+        val simpleMinutes = input.simpleDurationMinutes
+        val durationMinutes: Int
+        if (simpleMinutes != null) {
+            // 简单记：时长就是用户填的数，不做任何加减
+            durationMinutes = simpleMinutes.coerceAtLeast(0)
+            if (durationMinutes > MAX_DURATION_MINUTES) {
+                warnings += CalcWarning.DurationExceeds24Hours
+            }
+        } else {
+            val duration = calculateDuration(input.start, input.end, input.breakMinutes)
+            if (duration.crossDay) {
+                warnings += CalcWarning.EndBeforeStartTreatedAsNextDay
+            }
+            if (input.breakMinutes < 0 || input.breakMinutes >= duration.rawMinutes) {
+                warnings += CalcWarning.BreakExceedsDuration
+            }
+            if (duration.durationMinutes > MAX_DURATION_MINUTES) {
+                warnings += CalcWarning.DurationExceeds24Hours
+            }
+            durationMinutes = duration.durationMinutes
         }
-        if (input.breakMinutes < 0 || input.breakMinutes >= duration.rawMinutes) {
-            warnings += CalcWarning.BreakExceedsDuration
-        }
-        if (duration.durationMinutes > MAX_DURATION_MINUTES) {
-            warnings += CalcWarning.DurationExceeds24Hours
-        }
+        val safeMinutes = durationMinutes.coerceAtLeast(0)
 
         val hourlyRateCents = calculateHourlyRate(input.rule)
         val multiplierBp = input.rule.multiplierBpFor(input.type)
-        val safeMinutes = duration.durationMinutes.coerceAtLeast(0)
 
         val autoAmountCents = amountOf(hourlyRateCents, safeMinutes, multiplierBp)
         val amountCents = input.manualAmountCents ?: autoAmountCents
@@ -91,7 +107,7 @@ class CalculationEngine {
         val compTimeMinutes = compTimeOf(input, safeMinutes)
 
         return CalculationResult(
-            durationMinutes = duration.durationMinutes,
+            durationMinutes = durationMinutes,
             hourlyRateCents = hourlyRateCents,
             multiplierBp = multiplierBp,
             amountCents = amountCents,

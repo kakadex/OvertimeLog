@@ -40,6 +40,12 @@ data class OvertimeRecordEntity(
     @ColumnInfo(name = "rule_snapshot_json") val ruleSnapshotJson: String,
     @ColumnInfo(name = "created_at") val createdAt: Long,
     @ColumnInfo(name = "updated_at") val updatedAt: Long,
+    /**
+     * 1 = 这条记录是「简单记」录的（只填加班小时数，没填上下班时间）。
+     *
+     * 老记录没有这一列，迁移时统一填 0，即按原来的"计时录入"显示。
+     */
+    @ColumnInfo(name = "is_simple_entry", defaultValue = "0") val isSimpleEntry: Boolean = false,
 )
 
 /** 薪资规则表。V1 同时只会有一条 active = 1 的记录，历史规则保留不动。 */

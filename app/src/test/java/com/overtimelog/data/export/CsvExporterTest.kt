@@ -75,4 +75,22 @@ class CsvExporterTest {
             file.delete()
         }
     }
+
+    @Test
+    fun `simple entry exports blank time columns`() {
+        val file = File.createTempFile("overtime-simple-", ".csv")
+        try {
+            val simpleRecord = record("只记小时数").copy(isSimpleEntry = true)
+            val exporter = CsvExporter { FileOutputStream(file) }
+            exporter.export(file.toURI().toString(), listOf(simpleRecord))
+
+            val text = file.readText(Charsets.UTF_8)
+            // 简单记：开始/结束时间两列留空，日期和时长仍然在
+            val dataLine = text.trim().lines().last()
+            assertTrue("开始时间列应为空", dataLine.contains("2026-10-30,,"))
+            assertTrue("时长列要保留", dataLine.contains("180,3小时"))
+        } finally {
+            file.delete()
+        }
+    }
 }

@@ -29,6 +29,8 @@ internal fun OvertimeDraft.toInput(rule: SalaryRule): CalculationInput {
         compTimeMode = compTimeMode,
         manualAmountCents = manualAmountCents,
         manualCompTimeMinutes = manualCompTimeMinutes,
+        // 简单记模式：时长直接来自用户填的小时数，起止时间只是占位，引擎不再读它们
+        simpleDurationMinutes = simpleDurationMinutes,
     )
 }
 
@@ -91,8 +93,12 @@ abstract class BaseSaveRecordUseCase(
         allowCompOverdraft: Boolean,
     ): Result<OvertimeRecord> {
         if (draft.note.length > MAX_NOTE_LENGTH) return Result.failure(DomainError.NoteTooLong)
-        if (draft.breakMinutes < 0 || draft.breakMinutes > MAX_BREAK_MINUTES) {
+        // 简单记模式没有"休息扣除"这一步，用户填的小时数就是最终时长，所以不校验 breakMinutes
+        if (!draft.isSimpleEntry && (draft.breakMinutes < 0 || draft.breakMinutes > MAX_BREAK_MINUTES)) {
             return Result.failure(DomainError.InvalidBreak)
+        }
+        if (draft.simpleDurationMinutes != null && draft.simpleDurationMinutes !in 1..MAX_DURATION_MINUTES) {
+            return Result.failure(DomainError.InvalidDuration)
         }
         val manualAmount = draft.manualAmountCents
         if (manualAmount != null && (manualAmount < 0 || manualAmount > MAX_MANUAL_AMOUNT_CENTS)) {
@@ -113,9 +119,16 @@ abstract class BaseSaveRecordUseCase(
             }
         }
 
-        val start = draft.date.atTime(draft.startTime)
-        val rawEnd = draft.date.atTime(draft.endTime)
-        val end = if (!rawEnd.isAfter(start)) rawEnd.plusDays(1) else rawEnd
+        val simple = draft.simpleDurationMinutes != null
+        // 简单记模式没有真实上下班时间：起止时间只作占位（当天 00:00 起，按时长往后推），
+        // 并在记录上打标记，列表/导出据此不显示具体时刻。
+        val start = if (simple) draft.date.atStartOfDay() else draft.date.atTime(draft.startTime)
+        val end = when {
+            simple -> start.plusMinutes(calculation.durationMinutes.toLong())
+            else -> draft.date.atTime(draft.endTime).let { rawEnd ->
+                if (!rawEnd.isAfter(start)) rawEnd.plusDays(1) else rawEnd
+            }
+        }
 
         val record = OvertimeRecord(
             id = recordId,
@@ -123,7 +136,7 @@ abstract class BaseSaveRecordUseCase(
             date = draft.date,
             start = start,
             end = end,
-            breakMinutes = draft.breakMinutes,
+            breakMinutes = if (simple) 0 else draft.breakMinutes,
             type = draft.type,
             durationMinutes = calculation.durationMinutes,
             hourlyRateCents = calculation.hourlyRateCents,
@@ -137,6 +150,7 @@ abstract class BaseSaveRecordUseCase(
             ruleSnapshotJson = RuleSnapshot.toJson(rule, calculation, now),
             createdAt = createdAt,
             updatedAt = now,
+            isSimpleEntry = simple,
         )
         return Result.success(record)
     }

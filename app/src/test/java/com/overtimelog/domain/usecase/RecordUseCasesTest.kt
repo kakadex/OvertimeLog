@@ -8,6 +8,7 @@ import com.overtimelog.core.model.SalaryMode
 import com.overtimelog.core.model.SalaryRule
 import com.overtimelog.core.model.SettlementStatus
 import com.overtimelog.domain.model.OvertimeDraft
+import com.overtimelog.ui.common.SimpleHours
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -202,5 +203,60 @@ class RecordUseCasesTest {
         val allowed = useCase(date, 60, allowOverdraft = true)
         assertTrue(allowed.isSuccess)
         assertEquals(1, compTime.usages.size)
+    }
+
+    // ---------- 简单记模式 ----------
+
+    private fun simpleDraft(hoursText: String) = OvertimeDraft(
+        date = date,
+        startTime = LocalTime.of(18, 0),
+        endTime = LocalTime.of(21, 0),
+        breakMinutes = 30,
+        type = OvertimeType.WORKDAY,
+        // 填了小时数就走简单记，起止时间和休息扣除都不参与
+        simpleDurationMinutes = SimpleHours.parseMinutes(hoursText),
+    )
+
+    @Test
+    fun `simple entry stores duration from hours only`() = runTest {
+        val records = FakeOvertimeRepository()
+        val record = addUseCase(records, FakeSalaryRuleRepository(rule))(simpleDraft("2.5")).getOrThrow()
+
+        assertEquals(150, record.durationMinutes)
+        assertTrue("要打上简单记标记", record.isSimpleEntry)
+        assertEquals(0, record.breakMinutes)
+        // 占位时间：当天 00:00 起、按时长往后推，不影响统计（统计只看 durationMinutes）
+        assertEquals(date.atStartOfDay(), record.start)
+        assertEquals(date.atTime(2, 30), record.end)
+        // 金额与计时模式同算法：时薪 57.47 元 × 2.5h × 1.0
+        assertEquals(21_551L, record.amountCents)
+    }
+
+    @Test
+    fun `simple entry rejects non-positive or oversized hours`() = runTest {
+        val records = FakeOvertimeRepository()
+        val useCase = addUseCase(records, FakeSalaryRuleRepository(rule))
+
+        // UI 层会把"0 / 25"这类输入拦在 SimpleHours.parseMinutes（返回 null），
+        // 但用例层是最后一道防线：万一上游绕过 UI 直接传了非法分钟数，也必须拒绝。
+        val zero = OvertimeDraft(
+            date = date,
+            startTime = LocalTime.of(18, 0),
+            endTime = LocalTime.of(21, 0),
+            type = OvertimeType.WORKDAY,
+            simpleDurationMinutes = 0,
+        )
+        assertEquals(DomainError.InvalidDuration, useCase(zero).exceptionOrNull())
+
+        val oversized = OvertimeDraft(
+            date = date,
+            startTime = LocalTime.of(18, 0),
+            endTime = LocalTime.of(21, 0),
+            type = OvertimeType.WORKDAY,
+            simpleDurationMinutes = 24 * 60 + 1,
+        )
+        assertEquals(DomainError.InvalidDuration, useCase(oversized).exceptionOrNull())
+
+        assertTrue(records.records.isEmpty())
     }
 }

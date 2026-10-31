@@ -188,7 +188,6 @@ fun OvertimeNavHost(container: AppContainer) {
             composable(Routes.OVERVIEW, enterTransition = { EnterTransition.None }, exitTransition = { ExitTransition.None }, popEnterTransition = { EnterTransition.None }, popExitTransition = { ExitTransition.None }) {
                 OverviewScreen(
                     container = container,
-                    onAddRecord = { navController.navigate(Routes.edit()) },
                     onOpenRecord = { id -> navController.navigate(Routes.edit(recordId = id)) },
                     onOpenAllRecords = { navController.navigate(Routes.RECORDS) },
                     onOpenCompTime = { navController.navigate(Routes.COMP_TIME) },
@@ -199,7 +198,6 @@ fun OvertimeNavHost(container: AppContainer) {
                 RecordsScreen(
                     container = container,
                     onOpenRecord = { id -> navController.navigate(Routes.edit(recordId = id)) },
-                    onAddRecord = { navController.navigate(Routes.edit()) },
                 )
             }
 

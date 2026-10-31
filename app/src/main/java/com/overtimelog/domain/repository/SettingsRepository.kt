@@ -14,6 +14,10 @@ interface SettingsRepository {
     suspend fun setBreakUnit(unit: BreakUnit)
     suspend fun setDefaultTimes(start: LocalTime, end: LocalTime)
     suspend fun setDefaultOvertimeType(type: OvertimeType)
+    /** 切换「简单记模式」：开启后录入页只填加班小时数，不问上下班时间。 */
+    suspend fun setSimpleEntryMode(enabled: Boolean)
+    /** 简单记模式预填的小时数（字符串，保留用户输入的原文）。 */
+    suspend fun setDefaultSimpleHours(text: String)
     suspend fun setThemeMode(mode: ThemeMode)
     suspend fun setUpdateCheckOnStartup(enabled: Boolean)
     /** 手动指定某天的性质（休息日 / 节假日 / 补班）；传 null 表示恢复自动判断。 */
