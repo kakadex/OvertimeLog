@@ -137,12 +137,11 @@ fun CalendarScreen(
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    TextButton(
-                        onClick = viewModel::syncHolidays,
-                        enabled = !syncState.running,
-                    ) {
-                        Text(if (syncState.running) "更新中…" else "更新${state.month.year}年安排")
-                    }
+                    Text(
+                        text = if (state.hasHolidayData) "" else "本年安排未内置，可在设置里更新",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
                 }
             }
 

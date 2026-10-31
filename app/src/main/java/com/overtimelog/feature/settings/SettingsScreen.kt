@@ -5,6 +5,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -84,6 +86,8 @@ fun SettingsScreen(
     val rule by viewModel.rule.collectAsStateWithLifecycle()
     val updateState by viewModel.updateState.collectAsStateWithLifecycle()
     val installState by viewModel.installState.collectAsStateWithLifecycle()
+    val holidaySync by viewModel.holidaySync.collectAsStateWithLifecycle()
+    val holidayYears by viewModel.holidayYears.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -239,7 +243,11 @@ fun SettingsScreen(
                         }
 
                         Text("休息扣除单位", style = MaterialTheme.typography.bodyMedium)
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
                             listOf(BreakUnit.HOURS to "小时", BreakUnit.MINUTES to "分钟").forEach { (unit, text) ->
                                 FilterChip(
                                     selected = settings.breakUnit == unit,
@@ -250,7 +258,13 @@ fun SettingsScreen(
                         }
                         Spacer(Modifier.height(6.dp))
                         Text("默认加班类型", style = MaterialTheme.typography.bodyMedium)
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        // 四个选项一行放不下（"自定义"会被挤出屏幕），改成自动换行并整体居中：
+                        // 放不下时后面的选项整块换到下一行，不做横向压缩。
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
                             OvertimeType.entries.forEach { type ->
                                 FilterChip(
                                     selected = settings.defaultOvertimeType == type,
@@ -265,7 +279,11 @@ fun SettingsScreen(
 
             item {
                 SectionCard(title = "外观") {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
                         listOf(
                             ThemeMode.SYSTEM to "跟随系统",
                             ThemeMode.LIGHT to "浅色",
@@ -398,6 +416,52 @@ fun SettingsScreen(
                             ) {
                                 Text("打开发布页（手动下载）")
                             }
+                        }
+
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp))
+
+                        // ---- 放假安排：国家没有官方接口，说明清楚数据从哪来 ----
+                        Text("更新放假安排", style = MaterialTheme.typography.bodyMedium)
+                        Spacer(Modifier.height(6.dp))
+                        OutlinedButton(
+                            onClick = { viewModel.syncHolidays() },
+                            enabled = !holidaySync.running,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(
+                                if (holidaySync.running) "正在更新…"
+                                else "更新 ${holidaySync.year} 年放假安排",
+                            )
+                        }
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            text = "数据来源：国务院办公厅每年发布的《关于部分节假日安排的通知》，"
+                                + "经公开接口 timor.tech 整理成可读格式后下载到本机。"
+                                + "应用内置 2025、2026 年数据，断网也能看；"
+                                + "其他年份或官方临时调整，可点上面的按钮获取，也能在日历里长按某天手动改。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        val cachedYears = holidayYears.sorted()
+                        if (cachedYears.isNotEmpty()) {
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                text = "已下载到本机：" + cachedYears.joinToString("、") { "$it 年" },
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                        holidaySync.message?.let { message ->
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                text = message,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (message.startsWith("已更新")) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.error
+                                },
+                            )
                         }
 
                         HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp))
