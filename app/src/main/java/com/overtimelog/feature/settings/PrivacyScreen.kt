@@ -3,8 +3,11 @@ package com.overtimelog.feature.settings
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -26,7 +29,9 @@ import com.overtimelog.ui.components.SectionCard
 fun PrivacyScreen(onBack: () -> Unit) {
     Scaffold(
         topBar = {
+            // statusBarsPadding：全面屏状态栏会压住标题和返回键（同 RecordEditScreen）
             TopAppBar(
+                modifier = Modifier.windowInsetsPadding(WindowInsets.statusBars),
                 title = { Text("隐私说明") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
@@ -40,7 +45,8 @@ fun PrivacyScreen(onBack: () -> Unit) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
-            contentPadding = PaddingValues(16.dp),
+            // 底部多留 24dp：最后的「金额仅供参考」卡片不被手势条/导航栏压住
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 40.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item {

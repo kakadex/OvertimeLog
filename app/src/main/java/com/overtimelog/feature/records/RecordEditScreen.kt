@@ -5,12 +5,16 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -106,7 +110,9 @@ fun RecordEditScreen(
 
     Scaffold(
         topBar = {
+            // statusBarsPadding：全面屏状态栏会压住标题和返回键（主 Tab 各页都加了，二级页同样要）
             TopAppBar(
+                modifier = Modifier.windowInsetsPadding(WindowInsets.statusBars),
                 title = { Text(if (state.isEditing) "编辑记录" else "记一笔") },
                 navigationIcon = {
                     IconButton(onClick = onDone) {
@@ -125,7 +131,9 @@ fun RecordEditScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
-            Surface(tonalElevation = 3.dp) {
+            // navigationBarsPadding：全面屏手势条/虚拟导航栏会盖住贴底的按钮（部分国产 ROM 上
+            // 保存按钮下半截被挡）。让底栏整体抬到导航栏上方，按钮任何机型都完整可点。
+            Surface(tonalElevation = 3.dp, modifier = Modifier.navigationBarsPadding()) {
                 Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
                     // 实时摘要：不管页面滚到哪里，都能看到"这次加班多久、大概多少钱"。
                     state.preview?.let { preview ->
@@ -206,7 +214,8 @@ fun RecordEditScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
+            // 底部多留 24dp：最后一项（预览卡）不被手势条/导航栏压住
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 40.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item {

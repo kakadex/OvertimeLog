@@ -104,7 +104,8 @@ fun OverviewScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 16.dp),
+            // 底部多留 24dp：最后的说明文字不被手势条/导航栏压住（此页无底栏 padding 时也安全）
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 40.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             val updateToShow = availableUpdate?.takeIf { it.tag != dismissedUpdateTag }

@@ -5,8 +5,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -64,7 +67,9 @@ fun SalaryRuleScreen(
 
     Scaffold(
         topBar = {
+            // statusBarsPadding：全面屏状态栏会压住标题和返回键（同 RecordEditScreen）
             TopAppBar(
+                modifier = Modifier.windowInsetsPadding(WindowInsets.statusBars),
                 title = { Text("薪资规则") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
@@ -79,7 +84,8 @@ fun SalaryRuleScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
-            contentPadding = PaddingValues(16.dp),
+            // 底部多留 24dp：最后的「保存规则」按钮不被手势条/导航栏压住
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 40.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item {
