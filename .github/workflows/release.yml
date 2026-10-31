@@ -36,6 +36,25 @@ jobs:
           distribution: temurin
           java-version: '21'
 
+      # Gradle 发行包默认指向腾讯云镜像（本地很快），GitHub runner 在海外偶尔很慢甚至超时；
+      # 这里显式把发行包换成官方源，并缓存依赖，避免下载环节把整个 job 拖挂。
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+          gradle-version: wrapper
+          # 不走 Daemon 常驻，CI 单次构建更省内存
+          arguments: --no-daemon
+
+      - name: Use official Gradle distribution on CI
+        run: |
+          set -e
+          P=gradle/wrapper/gradle-wrapper.properties
+          if grep -q 'mirrors.cloud.tencent.com' "$P"; then
+            sed -i 's#https\\://mirrors.cloud.tencent.com/gradle/#https\\://services.gradle.org/distributions/#g' "$P"
+          fi
+          grep distributionUrl "$P"
+
       - name: Verify tag matches VERSION
         run: |
           set -e
@@ -51,14 +70,21 @@ jobs:
         run: |
           set -e
           SDK="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
-          if [ -d "$SDK/platforms/android-37" ]; then
+          # compileSdk = 37 在 sdkmanager 里的包名是 platforms;android-37.0（不是 android-37），
+          # 目录同样是 platforms/android-37.0。旧脚本判断 android-37 永远为假，又装错了包名。
+          if [ -d "$SDK/platforms/android-37.0" ] || [ -d "$SDK/platforms/android-37" ]; then
             echo "SDK 37 已存在"
-            exit 0
+          else
+            if command -v sdkmanager >/dev/null 2>&1; then
+              yes | sdkmanager --licenses >/dev/null 2>&1 || true
+              yes | sdkmanager "platforms;android-37.0" "build-tools;37.0.0" >/dev/null || true
+            else
+              echo "::error::找不到 sdkmanager，无法安装 platforms;android-37.0"
+              exit 1
+            fi
           fi
-          if command -v sdkmanager >/dev/null 2>&1; then
-            yes | sdkmanager "platforms;android-37" "build-tools;37.0.0" >/dev/null || true
-          fi
-          ls "$SDK/platforms" | tail -3
+          ls "$SDK/platforms"
+          ls "$SDK/build-tools" || true
 
       - name: Configure release signing
         env:
@@ -81,11 +107,15 @@ jobs:
 
       - name: Tests
         run: |
+          # gradlew 在仓库里的权限位是 644（Windows 上提交的），CI 上必须显式加执行权限
           chmod +x gradlew
-          ./gradlew :app:testDebugUnitTest :core:calculation:test --console=plain
+          # 注意：core:model 也有单测（日历放假判定），漏掉它等于少跑一半逻辑
+          ./gradlew :app:testDebugUnitTest :core:calculation:test :core:model:test --console=plain
 
       - name: Build release (R8 + ABI splits + AAB)
-        run: ./gradlew :app:assembleRelease :app:bundleRelease -PabiSplits=true --console=plain
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:assembleRelease :app:bundleRelease -PabiSplits=true --console=plain
 
       - name: Stage artifacts with release naming
         run: |
