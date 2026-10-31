@@ -5,6 +5,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -30,7 +32,7 @@ import com.overtimelog.ui.common.Money
  *
  * 一次显示：日期、类型、结算状态、起止时间、时长、金额，备注只显示一行。
  */
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 @Composable
 fun RecordCard(
     record: OvertimeRecord,
@@ -53,20 +55,28 @@ fun RecordCard(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                // 日期和类型用 FlowRow：系统字号调大时类型徽标整个换到下一行，
+                // 而不是被压窄后把"法定节假日"拆成两行。
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
                     Text(
                         text = DateTexts.day(record.date),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.SemiBold,
                     )
-                    Spacer(Modifier.width(8.dp))
                     TypeBadge(record.type)
-                    Spacer(Modifier.width(6.dp))
-                    SettlementChip(record.settlementStatus)
                 }
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    text = "${DateTexts.range(record.start.toLocalTime(), record.end.toLocalTime())} · ${Durations.text(record.durationMinutes)}",
+                    // 倍率跟时长一样属于"这条记录怎么算出来的"，放同一行；
+                    // 右侧只留金额和结算状态，状态才能安稳地待在金额下面。
+                    text = listOf(
+                        DateTexts.range(record.start.toLocalTime(), record.end.toLocalTime()),
+                        Durations.text(record.durationMinutes),
+                        "${record.multiplierBp / 1000.0} 倍",
+                    ).joinToString(" · "),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -89,17 +99,19 @@ fun RecordCard(
                     )
                 }
             }
-            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.Center) {
+            // 金额、结算状态都放右侧一列：状态跟在金额下面，
+            // 不再和日期/类型挤同一行（挤的时候"未结算"会被压成两行、贴到金额上）。
+            Column(
+                modifier = Modifier.align(Alignment.Top),
+                horizontalAlignment = Alignment.End,
+            ) {
                 Text(
                     text = Money.format(record.amountCents),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                 )
-                Text(
-                    text = "${record.multiplierBp / 1000.0} 倍",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                Spacer(Modifier.height(4.dp))
+                SettlementChip(record.settlementStatus)
             }
             if (trailing != null) {
                 Spacer(Modifier.width(4.dp))
