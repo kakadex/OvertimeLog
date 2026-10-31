@@ -1,10 +1,12 @@
 package com.overtimelog.ui.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.LocalRippleConfiguration
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.Color
 import com.overtimelog.data.settings.ThemeMode
 
@@ -47,8 +49,13 @@ fun OvertimeTheme(
         ThemeMode.LIGHT -> false
         ThemeMode.DARK -> true
     }
-    MaterialTheme(
-        colorScheme = if (dark) DarkColors else LightColors,
-        content = content,
-    )
+    // 不播水波纹：系统 RippleDrawable 一次点击会让 UI 线程持续重绘约 0.5–0.9 秒，
+    // 是底栏动画之后最后一个能明显感觉到的延迟。按下时按钮还有 120ms 的高程变化作为反馈，
+    // 需要更明显的按压反馈时，改成静态按压色，不要恢复默认水波纹。
+    CompositionLocalProvider(LocalRippleConfiguration provides null) {
+        MaterialTheme(
+            colorScheme = if (dark) DarkColors else LightColors,
+            content = content,
+        )
+    }
 }
