@@ -11,17 +11,21 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -101,8 +105,31 @@ fun CalendarScreen(
         }
     }
 
+    // 选中的不是今天就显示"今"按钮，点一下回到今天
+    val isToday = state.selectedDate == LocalDate.now()
+
     Scaffold(
-        topBar = { TopAppBar(title = { Text("日历") }) },
+        topBar = {
+            TopAppBar(
+                modifier = Modifier.windowInsetsPadding(WindowInsets.statusBars),
+                title = { Text("日历") },
+                actions = {
+                    if (!isToday) {
+                        // 圆形"今"按钮：只在一眼看不回今天时才出现，避免平时占位
+                        FilledTonalIconButton(
+                            onClick = viewModel::backToToday,
+                            modifier = Modifier.size(36.dp),
+                        ) {
+                            Text(
+                                text = "今",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                        }
+                    }
+                },
+            )
+        },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
         LazyColumn(

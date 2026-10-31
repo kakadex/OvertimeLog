@@ -155,6 +155,13 @@ class CalendarViewModel(
         }
     }
 
+    /** "今"按钮：把月份和选中日期都拉回今天。 */
+    fun backToToday() {
+        val today = LocalDate.now()
+        month.value = YearMonth.from(today)
+        selectedDate.value = today
+    }
+
     /**
      * 手动改某天的性质（休息日 / 节假日 / 补班）。
      *

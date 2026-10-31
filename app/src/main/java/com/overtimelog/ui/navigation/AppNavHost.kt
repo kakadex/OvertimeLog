@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -159,6 +160,9 @@ fun OvertimeNavHost(container: AppContainer) {
     val showBottomBar = bottomItems.any { it.route == currentRoute }
 
     Scaffold(
+        // 外层只负责底栏，不消费状态栏内边距：页面内层各自有 TopAppBar，
+        // 若这里也加 padding，标题会被推低一个状态栏高度（实测多出 128px）。
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
             if (showBottomBar) {
                 AppBottomBar(currentRoute = currentRoute) { route ->
@@ -174,7 +178,7 @@ fun OvertimeNavHost(container: AppContainer) {
         NavHost(
             navController = navController,
             startDestination = Routes.OVERVIEW,
-            modifier = Modifier.padding(padding),
+            modifier = Modifier.padding(bottom = padding.calculateBottomPadding()),
             // 底栏是高频操作，整页淡入淡出会明显"慢半拍"；这里全局关掉转场。
             enterTransition = { EnterTransition.None },
             exitTransition = { ExitTransition.None },
