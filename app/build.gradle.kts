@@ -44,6 +44,12 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    testOptions {
+        unitTests {
+            isReturnDefaultValues = false
+        }
+    }
+
     signingConfigs {
         if (hasReleaseSigning) {
             create("release") {
