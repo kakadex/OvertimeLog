@@ -23,9 +23,13 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
@@ -148,7 +152,7 @@ fun CalendarScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
-            // 底部多留 24dp：当天的最后一条记录卡片不被手势条/导航栏压住
+            // 底部留 40dp：最后一条记录不被手势条/导航栏挡住
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 40.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
@@ -221,35 +225,52 @@ fun CalendarScreen(
             }
 
             item {
-                Column {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = DateTexts.day(state.selectedDate),
-                                    style = MaterialTheme.typography.titleMedium,
-                                )
-                                state.selectedDayInfo?.let { info ->
-                                    Spacer(Modifier.width(8.dp))
-                                    DayKindBadge(info)
-                                }
-                            }
-                            state.selectedDayInfo?.takeIf { it.name.isNotBlank() }?.let { info ->
-                                Text(
-                                    text = info.name,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
+                // 位置仍在选中日期这一行右侧（和原来一致），但换成大号胶囊按钮：
+                // 加「+」图标、字号放大到 titleMedium、高度 48dp，热区比原来的文字按钮大得多。
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = DateTexts.day(state.selectedDate),
+                                style = MaterialTheme.typography.titleMedium,
+                            )
+                            state.selectedDayInfo?.let { info ->
+                                Spacer(Modifier.width(8.dp))
+                                DayKindBadge(info)
                             }
                         }
-                        TextButton(onClick = { onAddRecordForDate(state.selectedDate) }) {
-                            Text("这天记一笔")
+                        state.selectedDayInfo?.takeIf { it.name.isNotBlank() }?.let { info ->
+                            Text(
+                                text = info.name,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         }
                     }
+                    Spacer(Modifier.width(12.dp))
+                    ExtendedFloatingActionButton(
+                        onClick = { onAddRecordForDate(state.selectedDate) },
+                        icon = {
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = null,
+                                modifier = Modifier.size(22.dp),
+                            )
+                        },
+                        text = {
+                            Text(
+                                text = "这天记一笔",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                        },
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                    )
                 }
             }
 
