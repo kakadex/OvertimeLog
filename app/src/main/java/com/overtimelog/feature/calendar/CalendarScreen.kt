@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
@@ -52,7 +53,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.overtimelog.core.model.OvertimeRecord
@@ -225,51 +228,59 @@ fun CalendarScreen(
             }
 
             item {
-                // 位置仍在选中日期这一行右侧（和原来一致），但换成大号胶囊按钮：
-                // 加「+」图标、字号放大到 titleMedium、高度 48dp，热区比原来的文字按钮大得多。
+                // 「+这天记一笔」缩到和日期、性质标签同一行，不再单独占一块大按钮；
+                // 高度压到 36dp、字号 labelLarge，点起来依然比原来的纯文字按钮大。
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = DateTexts.day(state.selectedDate),
-                                style = MaterialTheme.typography.titleMedium,
-                            )
-                            state.selectedDayInfo?.let { info ->
-                                Spacer(Modifier.width(8.dp))
-                                DayKindBadge(info)
-                            }
-                        }
-                        state.selectedDayInfo?.takeIf { it.name.isNotBlank() }?.let { info ->
-                            Text(
-                                text = info.name,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = DateTexts.day(state.selectedDate),
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        state.selectedDayInfo?.let { info ->
+                            Spacer(Modifier.width(6.dp))
+                            DayKindBadge(info)
                         }
                     }
-                    Spacer(Modifier.width(12.dp))
+                    Spacer(Modifier.width(8.dp))
                     ExtendedFloatingActionButton(
                         onClick = { onAddRecordForDate(state.selectedDate) },
                         icon = {
                             Icon(
                                 imageVector = Icons.Default.Add,
                                 contentDescription = null,
-                                modifier = Modifier.size(22.dp),
+                                modifier = Modifier.size(18.dp),
                             )
                         },
                         text = {
                             Text(
                                 text = "这天记一笔",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.SemiBold,
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Medium,
                             )
                         },
+                        modifier = Modifier.height(36.dp),
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary,
+                        elevation = FloatingActionButtonDefaults.elevation(
+                            defaultElevation = 2.dp,
+                            pressedElevation = 4.dp,
+                        ),
+                    )
+                }
+                // 节日名放在日期行下方，不挤占按钮和标签的位置
+                state.selectedDayInfo?.takeIf { it.name.isNotBlank() }?.let { info ->
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = info.name,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
@@ -543,7 +554,16 @@ private fun LegendItem(color: Color, text: String) {
     }
 }
 
-/** 选中日期旁边的性质标签：法定节假日 / 休息日 / 调休补班 / 工作日。 */
+/**
+ * 选中日期旁边的性质标签：法定节假日 / 休息日 / 调休补班 / 工作日。
+ *
+ * 宽度固定为「3 个字」的宽度：
+ * - 3 字以内（工作日 / 休息日 / 调休补班）单行显示并水平居中；
+ * - 4 个字（法定节假日是 5 字，这里指宽度放不下的词）自动按词语换行、每行居中。
+ *
+ * 换行规则靠 [WordBreak]：在每个中文词之间插入零宽空格（U+200B），
+ * 让 Compose 只在词与词之间断开，不会把「法定节假日」拆成「法/定节/假日」这种断法。
+ */
 @Composable
 private fun DayKindBadge(info: com.overtimelog.core.model.DayInfo) {
     val (text, color) = when (info.kind) {
@@ -552,14 +572,38 @@ private fun DayKindBadge(info: com.overtimelog.core.model.DayInfo) {
         com.overtimelog.core.model.DayKind.MAKEUP_WORKDAY -> "调休补班" to MakeupAccent
         com.overtimelog.core.model.DayKind.WORKDAY -> "工作日" to MaterialTheme.colorScheme.onSurfaceVariant
     }
+    // 宽度 = 「3 个字」：labelSmall 11sp，字宽约 11dp，3 字 33dp + 左右内边距。
+    // 3 字以内单行居中；更长的按词语拆成多行（换行位置由 [breakByWord] 显式指定，
+    // 不依赖自动换行——中文任意字符间都能断，自动换行会断出「法定节」/「假日」）。
+    val threeCharWidth = 48.dp
     Surface(shape = RoundedCornerShape(6.dp), color = color.copy(alpha = 0.12f)) {
         Text(
-            text = text,
+            text = breakByWord(text),
             style = MaterialTheme.typography.labelSmall,
             color = color,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+            textAlign = TextAlign.Center,
+            lineHeight = 14.sp,
+            modifier = Modifier
+                .width(threeCharWidth)
+                .padding(horizontal = 3.dp, vertical = 3.dp),
         )
     }
+}
+
+/**
+ * 按词语把性质标签拆成多行，保证断行落在词边界上。
+ *
+ * - 3 个字以内（工作日 / 休息日）：原样返回，单行居中；
+ * - 4 个字（调休补班）：拆成「调休」/「补班」两行；
+ * - 5 个字（法定节假日）：拆成「法定」/「节假日」两行。
+ *
+ * 用显式换行符而不是自动换行：中文字符之间天然可断行，自动换行可能断成
+ * 「法定节」/「假日」这种词中间劈开的样式（实测踩过）。
+ */
+private fun breakByWord(text: String): String = when (text) {
+    "法定节假日" -> "法定\n节假日"
+    "调休补班" -> "调休\n补班"
+    else -> text
 }
 
 /** 休息 / 法定节假日用暖红，和系统日历一致；深色模式下调亮一点保证对比。 */
