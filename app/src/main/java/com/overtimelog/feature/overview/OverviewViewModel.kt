@@ -69,6 +69,11 @@ class OverviewViewModel(
         month.value = YearMonth.now()
     }
 
+    /** 点顶部年月手动输入后跳转（配合 [com.overtimelog.ui.components.MonthJumpDialog]）。 */
+    fun jumpTo(target: YearMonth) {
+        month.value = target
+    }
+
     companion object {
         fun factory(container: AppContainer) = viewModelFactory {
             initializer { OverviewViewModel(container.overtimeRepository, container.compTimeRepository) }

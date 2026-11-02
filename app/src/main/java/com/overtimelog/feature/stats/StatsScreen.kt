@@ -1,6 +1,7 @@
 package com.overtimelog.feature.stats
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,12 +15,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -37,6 +41,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -51,7 +56,10 @@ import com.overtimelog.ui.common.label
 import com.overtimelog.ui.components.ConfirmDialog
 import com.overtimelog.ui.components.EmptyState
 import com.overtimelog.ui.components.InfoRow
+import com.overtimelog.ui.components.MonthJumpDialog
+import com.overtimelog.ui.components.TodayButton
 import com.overtimelog.ui.components.MonthSwitcher
+import com.overtimelog.ui.components.YearJumpDialog
 import com.overtimelog.ui.components.SectionCard
 import com.overtimelog.ui.components.color
 import java.time.YearMonth
@@ -69,9 +77,19 @@ fun StatsScreen(container: AppContainer) {
     val snackbarHostState = remember { SnackbarHostState() }
     // null = 没有待确认操作；true = 待标记全部已结算；false = 待标记全部未结算
     var pendingSettled by remember { mutableStateOf<Boolean?>(null) }
+    // 点年月/年份文字 → 手动输入跳转
+    var showMonthJump by remember { mutableStateOf(false) }
+    var showYearJump by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.events.collect { message -> snackbarHostState.showSnackbar(message) }
+    }
+
+    // 当前看的不是本月/今年时，右上角显示「今」
+    val isCurrentPeriod = if (state.mode == StatsMode.MONTH) {
+        state.month == YearMonth.now()
+    } else {
+        state.year == YearMonth.now().year
     }
 
     Scaffold(
@@ -79,6 +97,19 @@ fun StatsScreen(container: AppContainer) {
             TopAppBar(
                 modifier = Modifier.windowInsetsPadding(WindowInsets.statusBars),
                 title = { Text("统计") },
+                actions = {
+                    if (!isCurrentPeriod) {
+                        TodayButton(
+                            onClick = {
+                                if (state.mode == StatsMode.MONTH) {
+                                    viewModel.jumpToMonth(YearMonth.now())
+                                } else {
+                                    viewModel.jumpToYear(YearMonth.now().year)
+                                }
+                            },
+                        )
+                    }
+                },
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -130,6 +161,7 @@ fun StatsScreen(container: AppContainer) {
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     TextButton(onClick = viewModel::previous) { Text("‹") }
+                    // 中间的年月/年份可点：点开手动输入跳转，不用一格一格翻
                     Text(
                         text = if (state.mode == StatsMode.MONTH) {
                             DateTexts.month(state.month)
@@ -137,7 +169,12 @@ fun StatsScreen(container: AppContainer) {
                             "${state.year} 年"
                         },
                         style = MaterialTheme.typography.titleLarge,
-                        modifier = Modifier.padding(horizontal = 16.dp),
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable {
+                                if (state.mode == StatsMode.MONTH) showMonthJump = true else showYearJump = true
+                            }
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
                     )
                     TextButton(onClick = viewModel::next) { Text("›") }
                 }
@@ -149,6 +186,28 @@ fun StatsScreen(container: AppContainer) {
                 yearContent(state.yearSummary)
             }
         }
+    }
+
+    if (showMonthJump) {
+        MonthJumpDialog(
+            current = state.month,
+            onConfirm = { target ->
+                viewModel.jumpToMonth(target)
+                showMonthJump = false
+            },
+            onDismiss = { showMonthJump = false },
+        )
+    }
+
+    if (showYearJump) {
+        YearJumpDialog(
+            currentYear = state.year,
+            onConfirm = { target ->
+                viewModel.jumpToYear(target)
+                showYearJump = false
+            },
+            onDismiss = { showYearJump = false },
+        )
     }
 
     pendingSettled?.let { settled ->

@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowLeft
@@ -17,7 +18,9 @@ import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -131,8 +134,10 @@ fun SectionCard(
 /**
  * 月份切换器：上个月 / 2026年10月 / 下个月。
  *
- * [onClickMonth] 非空时，中间的年月文字可点击（日历页用它打开「手动输入年月」对话框）；
+ * [onClickMonth] 非空时，中间的年月文字可点击（打开「手动输入年月」对话框）；
  * 为空则只是普通文字，保持旧行为。
+ *
+ * 「今」按钮不在这里：各页统一放到顶栏右上角（见 [TodayButton]）。
  */
 @Composable
 fun MonthSwitcher(
@@ -168,6 +173,33 @@ fun MonthSwitcher(
         IconButton(onClick = onNext) {
             Icon(Icons.Default.KeyboardArrowRight, contentDescription = "下个月")
         }
+    }
+}
+
+/**
+ * 「今」按钮（日历 / 概览 / 记录 / 统计四处共用）。
+ *
+ * 样式与日历页顶栏那个完全一致：右上角、40dp 圆形、淡蓝底、文字与页面标题同字号。
+ * 各页只决定"什么时候显示它"（比如只在本月以外显示），长什么样统一在这里。
+ */
+@Composable
+fun TodayButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    FilledTonalIconButton(
+        onClick = onClick,
+        modifier = modifier
+            // 距右边框 0.5cm（≈21dp），和日历页保持一致，不贴边
+            .padding(end = 21.dp)
+            .size(40.dp),
+        colors = IconButtonDefaults.filledTonalIconButtonColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+        ),
+    ) {
+        Text(
+            text = "今",
+            // 与页面标题同用 titleLarge，字号一致
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Medium,
+        )
     }
 }
 

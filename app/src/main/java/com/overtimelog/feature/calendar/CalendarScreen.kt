@@ -85,6 +85,8 @@ import com.overtimelog.ui.common.DateTexts
 import com.overtimelog.ui.common.ShortHours
 import com.overtimelog.ui.components.ConfirmDialog
 import com.overtimelog.ui.components.EmptyState
+import com.overtimelog.ui.components.MonthJumpDialog
+import com.overtimelog.ui.components.TodayButton
 import com.overtimelog.ui.components.MonthSwitcher
 import com.overtimelog.ui.components.RecordCard
 import com.overtimelog.ui.components.color
@@ -146,29 +148,10 @@ fun CalendarScreen(
                 modifier = Modifier.windowInsetsPadding(WindowInsets.statusBars),
                 title = { Text("日历") },
                 actions = {
+                    // 选中的不是今天就显示「今」，点一下回到今天。
+                    // 样式统一走公共组件 TodayButton（四个页面同一套大小/颜色/边距）。
                     if (!isToday) {
-                        // 圆形"今"按钮：
-                        // - 距右边框 0.5cm（≈21dp），不贴边
-                        // - 与「日历」标题垂直居中对齐（不再下移，避免底部被标题栏裁掉）
-                        // - 文字与标题同字号，淡蓝底
-                        FilledTonalIconButton(
-                            onClick = viewModel::backToToday,
-                            modifier = Modifier
-                                .padding(end = 21.dp)
-                                .size(40.dp),
-                            colors = IconButtonDefaults.filledTonalIconButtonColors(
-                                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                            ),
-                        ) {
-                            Text(
-                                text = "今",
-                                // 与 TopAppBar 标题同用 titleLarge，字号一致
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Medium,
-                            )
-                        }
-                        // 右边的 Spacer 保持 0，靠 padding 精确控制 0.5cm 边距
-                        Spacer(Modifier.width(0.dp))
+                        TodayButton(onClick = viewModel::backToToday)
                     }
                 },
             )
@@ -441,81 +424,6 @@ fun CalendarScreen(
     }
 }
 
-/**
- * 手动输入年月并跳转。
- *
- * 输入两个数字框（年、月），比让用户在日历上一格一格翻页快得多 ——
- * 想查去年某个月的加班，一下就到了。年范围限制在 1970–2100，避免输入明显错误的值。
- */
-@Composable
-private fun MonthJumpDialog(
-    current: YearMonth,
-    onConfirm: (YearMonth) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    var yearText by remember { mutableStateOf(current.year.toString()) }
-    var monthText by remember { mutableStateOf(current.monthValue.toString()) }
-
-    val year = yearText.trim().toIntOrNull()
-    val month = monthText.trim().toIntOrNull()
-    val valid = year != null && year in 1970..2100 && month != null && month in 1..12
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("跳到指定年月") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    OutlinedTextField(
-                        value = yearText,
-                        onValueChange = { if (it.length <= 4) yearText = it.filter { c -> c.isDigit() } },
-                        label = { Text("年") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.weight(1f),
-                    )
-                    OutlinedTextField(
-                        value = monthText,
-                        onValueChange = { if (it.length <= 2) monthText = it.filter { c -> c.isDigit() } },
-                        label = { Text("月") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-                Text(
-                    text = if (valid) {
-                        "将跳到 ${year}年${month}月"
-                    } else {
-                        "年份填 1970–2100，月份填 1–12"
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (valid) {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    } else {
-                        MaterialTheme.colorScheme.error
-                    },
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    if (valid && year != null && month != null) {
-                        onConfirm(YearMonth.of(year, month))
-                    }
-                },
-                enabled = valid,
-            ) { Text("跳转") }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("取消") }
-        },
-    )
-}
 
 /**
  * 长按某天弹出的"标记为…"对话框。

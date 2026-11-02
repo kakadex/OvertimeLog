@@ -56,6 +56,8 @@ import com.overtimelog.di.AppContainer
 import com.overtimelog.ui.common.label
 import com.overtimelog.ui.components.ConfirmDialog
 import com.overtimelog.ui.components.EmptyState
+import com.overtimelog.ui.components.MonthJumpDialog
+import com.overtimelog.ui.components.TodayButton
 import com.overtimelog.ui.components.MonthSwitcher
 import com.overtimelog.ui.components.RecordCard
 import java.time.YearMonth
@@ -73,6 +75,8 @@ fun RecordsScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     var deleteTarget by remember { mutableStateOf<OvertimeRecord?>(null) }
+    // 点顶部年月 → 手动输入年月跳转
+    var showMonthJump by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.eventFlow.collect { event ->
@@ -97,6 +101,12 @@ fun RecordsScreen(
             TopAppBar(
                 modifier = Modifier.windowInsetsPadding(WindowInsets.statusBars),
                 title = { Text("记录") },
+                actions = {
+                    // 看的不是本月（含"全部月份"）时，右上角出现「今」回到本月
+                    if (state.filter.month != YearMonth.now()) {
+                        TodayButton(onClick = { viewModel.setMonth(YearMonth.now()) })
+                    }
+                },
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -117,6 +127,8 @@ fun RecordsScreen(
                     month = state.filter.month ?: YearMonth.now(),
                     onPrevious = viewModel::previousMonth,
                     onNext = viewModel::nextMonth,
+                    // 点年月文字 → 手动输入跳转；跳转时自动从"全部月份"切回指定月份
+                    onClickMonth = { showMonthJump = true },
                 )
                 TextButton(
                     onClick = {
@@ -233,6 +245,17 @@ fun RecordsScreen(
                 }
             }
         }
+    }
+
+    if (showMonthJump) {
+        MonthJumpDialog(
+            current = state.filter.month ?: YearMonth.now(),
+            onConfirm = { target ->
+                viewModel.jumpTo(target)
+                showMonthJump = false
+            },
+            onDismiss = { showMonthJump = false },
+        )
     }
 
     deleteTarget?.let { record ->

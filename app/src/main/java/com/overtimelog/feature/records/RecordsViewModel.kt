@@ -76,6 +76,9 @@ class RecordsViewModel(
 
     fun setMonth(month: YearMonth?) = updateFilter { it.copy(month = month) }
 
+    /** 点顶部年月手动输入后跳转：同时把"全部月份"改回指定月份。 */
+    fun jumpTo(target: YearMonth) = updateFilter { it.copy(month = target) }
+
     fun previousMonth() = updateFilter {
         it.copy(month = (it.month ?: YearMonth.now()).minusMonths(1))
     }

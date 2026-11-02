@@ -124,6 +124,18 @@ class StatsViewModel(
         if (mode.value == StatsMode.MONTH) month.value = month.value.plusMonths(1) else year.value += 1
     }
 
+    /** 跳到指定年月：切回月度模式并定位到该月。 */
+    fun jumpToMonth(target: YearMonth) {
+        mode.value = StatsMode.MONTH
+        month.value = target
+    }
+
+    /** 跳到指定年份：切到年度模式并定位到该年。 */
+    fun jumpToYear(target: Int) {
+        mode.value = StatsMode.YEAR
+        year.value = target
+    }
+
     companion object {
         fun factory(container: AppContainer) = viewModelFactory {
             initializer { StatsViewModel(container) }

@@ -52,6 +52,8 @@ import com.overtimelog.ui.common.label
 import com.overtimelog.ui.common.openWebPage
 import com.overtimelog.ui.common.supportedAbis
 import com.overtimelog.ui.components.EmptyState
+import com.overtimelog.ui.components.MonthJumpDialog
+import com.overtimelog.ui.components.TodayButton
 import com.overtimelog.ui.components.MonthSwitcher
 import com.overtimelog.ui.components.RecordCard
 import com.overtimelog.ui.components.SectionCard
@@ -85,6 +87,8 @@ fun OverviewScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var dismissedUpdateTag by rememberSaveable { mutableStateOf<String?>(null) }
+    // 点顶部年月 → 手动输入年月跳转
+    var showMonthJump by rememberSaveable { mutableStateOf(false) }
 
     // 下载完成 → 直接拉起系统安装界面
     val installLauncher = rememberLauncherForActivityResult(
@@ -96,6 +100,12 @@ fun OverviewScreen(
             TopAppBar(
                 modifier = Modifier.windowInsetsPadding(WindowInsets.statusBars),
                 title = { Text("加班记") },
+                actions = {
+                    // 看的不是本月时，右上角出现「今」，一键回到本月（与日历页同款按钮）
+                    if (!isCurrentMonth) {
+                        TodayButton(onClick = viewModel::backToCurrentMonth)
+                    }
+                },
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -143,6 +153,8 @@ fun OverviewScreen(
                     month = state.month,
                     onPrevious = viewModel::previousMonth,
                     onNext = viewModel::nextMonth,
+                    // 点年月文字 → 手动输入跳转，不用一格一格翻
+                    onClickMonth = { showMonthJump = true },
                 )
             }
 
@@ -222,19 +234,6 @@ fun OverviewScreen(
                 }
             }
 
-            if (!isCurrentMonth) {
-                item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.Center,
-                    ) {
-                        TextButton(onClick = viewModel::backToCurrentMonth) {
-                            Text("回到本月")
-                        }
-                    }
-                }
-            }
-
             item {
                 Spacer(Modifier.width(0.dp))
                 Text(
@@ -244,6 +243,17 @@ fun OverviewScreen(
                 )
             }
         }
+    }
+
+    if (showMonthJump) {
+        MonthJumpDialog(
+            current = state.month,
+            onConfirm = { target ->
+                viewModel.jumpTo(target)
+                showMonthJump = false
+            },
+            onDismiss = { showMonthJump = false },
+        )
     }
 }
 
