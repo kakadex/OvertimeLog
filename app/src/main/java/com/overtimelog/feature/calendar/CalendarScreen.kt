@@ -8,13 +8,16 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
@@ -399,17 +402,25 @@ private fun MonthGrid(
     val rows = (totalCells + 6) / 7
     val today = LocalDate.now()
 
-    Column {
+    // 整个月的所有格子统一高度：
+    // 外层 Column 用 IntrinsicSize.Min，让每一行、每一格都按"全月最高的那个格子"取高度，
+    // 整块日历是整齐网格（不会出现有的行高、有的行矮）。
+    // 用 IntrinsicSize 而不是写死 dp：系统字号调大时格子跟着长，
+    // 不会再裁掉"国庆下方的小时数"（实际反馈过的问题）。
+    Column(modifier = Modifier.height(IntrinsicSize.Min)) {
         for (row in 0 until rows) {
-            Row(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(IntrinsicSize.Min),
+            ) {
                 for (column in 0..6) {
                     val dayIndex = row * 7 + column - leading
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            // 格子高度加大到 64dp：要放"日期 + 加班小时数 + 休/班角标 + 节日名"
-                            // 这么多信息，56dp 会把小时数挤到和节日名重叠。
-                            .height(64.dp)
+                            .fillMaxHeight()
+                            .heightIn(min = 64.dp)
                             .padding(2.dp),
                         contentAlignment = Alignment.Center,
                     ) {
