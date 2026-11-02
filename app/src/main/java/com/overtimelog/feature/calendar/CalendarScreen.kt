@@ -4,6 +4,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -27,6 +28,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.AlertDialog
@@ -36,6 +38,7 @@ import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -56,7 +59,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -91,6 +96,8 @@ fun CalendarScreen(
     var deleteTarget by remember { mutableStateOf<OvertimeRecord?>(null) }
     // 长按某天弹出的"标记为..."菜单
     var markTarget by remember { mutableStateOf<LocalDate?>(null) }
+    // 点顶部年月 → 手动输入年月跳转
+    var showMonthPicker by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.events.collect { event ->
@@ -174,6 +181,8 @@ fun CalendarScreen(
                         month = state.month,
                         onPrevious = viewModel::previousMonth,
                         onNext = viewModel::nextMonth,
+                        // 点年月文字 → 打开手动输入对话框，可一步跳到很远的年月
+                        onClickMonth = { showMonthPicker = true },
                     )
                 }
             }
@@ -198,7 +207,26 @@ fun CalendarScreen(
             }
 
             item {
-                Column {
+                Column(
+                    // 左右滑动切换月份：在月历网格这一块区域上识别水平拖动，
+                    // 向左滑 → 下个月，向右滑 → 上个月（跟随常见日历 App 的手感）。
+                    // 只挂在日历区域而不是整页，避免抢掉列表上下滚动。
+                    modifier = Modifier.pointerInput(state.month) {
+                        var dragTotalX = 0f
+                        detectHorizontalDragGestures(
+                            onDragEnd = {
+                                when {
+                                    dragTotalX <= -SWIPE_THRESHOLD_PX -> viewModel.nextMonth()
+                                    dragTotalX >= SWIPE_THRESHOLD_PX -> viewModel.previousMonth()
+                                }
+                                dragTotalX = 0f
+                            },
+                            onDragCancel = { dragTotalX = 0f },
+                        ) { _, dragAmount ->
+                            dragTotalX += dragAmount
+                        }
+                    },
+                ) {
                     Row(modifier = Modifier.fillMaxWidth()) {
                         listOf("一", "二", "三", "四", "五", "六", "日").forEach { label ->
                             Text(
@@ -319,6 +347,17 @@ fun CalendarScreen(
         )
     }
 
+    if (showMonthPicker) {
+        MonthJumpDialog(
+            current = state.month,
+            onConfirm = { target ->
+                viewModel.jumpTo(target)
+                showMonthPicker = false
+            },
+            onDismiss = { showMonthPicker = false },
+        )
+    }
+
     markTarget?.let { date ->
         val current = state.dayKinds[date]
         MarkDayDialog(
@@ -331,6 +370,82 @@ fun CalendarScreen(
             onDismiss = { markTarget = null },
         )
     }
+}
+
+/**
+ * 手动输入年月并跳转。
+ *
+ * 输入两个数字框（年、月），比让用户在日历上一格一格翻页快得多 ——
+ * 想查去年某个月的加班，一下就到了。年范围限制在 1970–2100，避免输入明显错误的值。
+ */
+@Composable
+private fun MonthJumpDialog(
+    current: YearMonth,
+    onConfirm: (YearMonth) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var yearText by remember { mutableStateOf(current.year.toString()) }
+    var monthText by remember { mutableStateOf(current.monthValue.toString()) }
+
+    val year = yearText.trim().toIntOrNull()
+    val month = monthText.trim().toIntOrNull()
+    val valid = year != null && year in 1970..2100 && month != null && month in 1..12
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("跳到指定年月") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    OutlinedTextField(
+                        value = yearText,
+                        onValueChange = { if (it.length <= 4) yearText = it.filter { c -> c.isDigit() } },
+                        label = { Text("年") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.weight(1f),
+                    )
+                    OutlinedTextField(
+                        value = monthText,
+                        onValueChange = { if (it.length <= 2) monthText = it.filter { c -> c.isDigit() } },
+                        label = { Text("月") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                Text(
+                    text = if (valid) {
+                        "将跳到 ${year}年${month}月"
+                    } else {
+                        "年份填 1970–2100，月份填 1–12"
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (valid) {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    } else {
+                        MaterialTheme.colorScheme.error
+                    },
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    if (valid && year != null && month != null) {
+                        onConfirm(YearMonth.of(year, month))
+                    }
+                },
+                enabled = valid,
+            ) { Text("跳转") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("取消") }
+        },
+    )
 }
 
 /**
@@ -624,6 +739,9 @@ private fun breakByWord(text: String): String = when (text) {
     "调休补班" -> "调休\n补班"
     else -> text
 }
+
+/** 左右滑动切换月份的最小位移（像素）。约 60dp 对应的粗略值，太小会误触。 */
+private const val SWIPE_THRESHOLD_PX = 150f
 
 /** 休息 / 法定节假日用暖红，和系统日历一致；深色模式下调亮一点保证对比。 */
 private val RestAccent: Color

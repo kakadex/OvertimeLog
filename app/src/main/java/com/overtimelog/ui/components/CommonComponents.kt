@@ -1,6 +1,7 @@
 package com.overtimelog.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -25,6 +26,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -126,13 +128,19 @@ fun SectionCard(
     }
 }
 
-/** 月份切换器：上个月 / 2026年10月 / 下个月。 */
+/**
+ * 月份切换器：上个月 / 2026年10月 / 下个月。
+ *
+ * [onClickMonth] 非空时，中间的年月文字可点击（日历页用它打开「手动输入年月」对话框）；
+ * 为空则只是普通文字，保持旧行为。
+ */
 @Composable
 fun MonthSwitcher(
     month: YearMonth,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
     modifier: Modifier = Modifier,
+    onClickMonth: (() -> Unit)? = null,
 ) {
     Row(
         modifier = modifier,
@@ -144,7 +152,18 @@ fun MonthSwitcher(
         Text(
             text = DateTexts.month(month),
             style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.padding(horizontal = 4.dp),
+            // 可点击时给出明确的热区和语义，避免用户不知道这里能点
+            modifier = Modifier
+                .then(
+                    if (onClickMonth != null) {
+                        Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable(onClick = onClickMonth)
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                    } else {
+                        Modifier.padding(horizontal = 4.dp)
+                    },
+                ),
         )
         IconButton(onClick = onNext) {
             Icon(Icons.Default.KeyboardArrowRight, contentDescription = "下个月")

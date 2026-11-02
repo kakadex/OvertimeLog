@@ -148,6 +148,19 @@ class CalendarViewModel(
         selectedDate.value = target.atDay(1)
     }
 
+    /**
+     * 跳到指定年月（点顶部「2026年11月」手动输入后调用）。
+     *
+     * 选中日期落到该月 1 号：如果用户输入的是当前月份，则保留今天的选中状态更自然。
+     */
+    fun jumpTo(target: YearMonth) {
+        val current = month.value
+        if (target == current) return
+        month.value = target
+        val today = LocalDate.now()
+        selectedDate.value = if (YearMonth.from(today) == target) today else target.atDay(1)
+    }
+
     fun selectDate(date: LocalDate) {
         selectedDate.value = date
         if (YearMonth.from(date) != month.value) {
