@@ -3,6 +3,8 @@ package com.overtimelog.feature.records
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -16,7 +18,6 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -76,7 +77,7 @@ import java.time.LocalTime
  * 交互原则（PRD 7.4）：核心流程不超过 3 步 —— 默认值已经按设置填好，
  * 大多数情况用户只需要确认时间、点保存。
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun RecordEditScreen(
     container: AppContainer,
@@ -311,8 +312,14 @@ fun RecordEditScreen(
             item {
                 SectionCard(title = "加班类型") {
                     Column {
-                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            items(OvertimeType.entries) { type ->
+                        // 用 FlowRow 自动换行：原来 LazyRow 只能横向滚动，
+                        // 屏幕窄或系统字号大时「自定义」会被截掉半个字（实际反馈过）。
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            OvertimeType.entries.forEach { type ->
                                 FilterChip(
                                     selected = state.type == type,
                                     onClick = { viewModel.onTypeChange(type) },
@@ -333,8 +340,13 @@ fun RecordEditScreen(
             item {
                 SectionCard(title = "怎么算") {
                     Column {
-                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            items(CompTimeMode.entries) { mode ->
+                        // 同「加班类型」：FlowRow 自动换行，避免「手动填写」被截断
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            CompTimeMode.entries.forEach { mode ->
                                 FilterChip(
                                     selected = state.compTimeMode == mode,
                                     onClick = { viewModel.onCompTimeModeChange(mode) },
