@@ -1,13 +1,10 @@
 package com.overtimelog.feature.calendar
 
-import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -16,6 +13,7 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
@@ -27,6 +25,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
@@ -62,19 +61,24 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 import com.overtimelog.core.model.OvertimeRecord
 import com.overtimelog.di.AppContainer
 import com.overtimelog.ui.common.DateTexts
@@ -215,29 +219,12 @@ fun CalendarScreen(
             }
 
             item {
-                Column(
-                    // 左右滑动切换月份：在月历网格这一块区域上识别水平拖动，
-                    // 向左滑 → 下个月，向右滑 → 上个月（跟随常见日历 App 的手感）。
-                    // 只挂在日历区域而不是整页，避免抢掉列表上下滚动。
-                    modifier = Modifier.pointerInput(Unit) {
-                        // 阈值按 dp 转像素：不同密度的机型手感一致，
-                        // 取 100dp —— 比之前的 150px（约 57dp）更严格，轻扫不会误切月。
-                        val thresholdPx = SWIPE_THRESHOLD_DP.toPx()
-                        var dragTotalX = 0f
-                        detectHorizontalDragGestures(
-                            onDragEnd = {
-                                when {
-                                    dragTotalX <= -thresholdPx -> viewModel.nextMonth()
-                                    dragTotalX >= thresholdPx -> viewModel.previousMonth()
-                                }
-                                dragTotalX = 0f
-                            },
-                            onDragCancel = { dragTotalX = 0f },
-                        ) { _, dragAmount ->
-                            dragTotalX += dragAmount
-                        }
-                    },
-                ) {
+                // 日历区域：拖动时整块日历跟着手指走，相邻月份从侧边露出来；
+                // 松手后超过阈值才切月，没超过就弹回原位。
+                // 手势只挂在这一块，不影响页面上下滚动。
+                val scope = rememberCoroutineScope()
+                val offsetX = remember { Animatable(0f) }
+                Column {
                     Row(modifier = Modifier.fillMaxWidth()) {
                         listOf("一", "二", "三", "四", "五", "六", "日").forEach { label ->
                             Text(
@@ -250,33 +237,81 @@ fun CalendarScreen(
                         }
                     }
                     Spacer(Modifier.height(6.dp))
-                    // 切月动画：新月份整块从侧边滑入、旧月份反向滑出，并淡入淡出。
-                    // 向前（点下个月/左滑）新内容从右进；向后从左进，方向和手指一致。
-                    AnimatedContent(
-                        targetState = state.month,
-                        transitionSpec = {
-                            val forward = targetState > initialState
-                            val duration = 240
-                            (
-                                slideInHorizontally(tween(duration, easing = FastOutSlowInEasing)) { width ->
-                                    if (forward) width else -width
-                                } + fadeIn(tween(duration))
-                                ) togetherWith (
-                                slideOutHorizontally(tween(duration, easing = FastOutSlowInEasing)) { width ->
-                                    if (forward) -width else width
-                                } + fadeOut(tween(duration))
-                                )
-                        },
-                        label = "calendar-month",
-                    ) { animatedMonth ->
-                        // 动画期间旧月份还在屏幕上，它不该用新月份的数据：
-                        // 只有和当前选中月份一致时才用真实的标记/属性，否则给空，避免闪一下错数据。
-                        val isCurrent = animatedMonth == state.month
-                        MonthGrid(
-                            month = animatedMonth,
-                            selected = if (isCurrent) state.selectedDate else animatedMonth.atDay(1),
-                            markers = if (isCurrent) state.markers else emptyMap(),
-                            dayKinds = if (isCurrent) state.dayKinds else emptyMap(),
+                    BoxWithConstraints(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            // 超出部分裁掉，否则拖动时相邻月份会画到左右其它内容上
+                            .clipToBounds()
+                            .pointerInput(state.month) {
+                                val width = size.width.toFloat()
+                                // 阈值取「100dp」和「屏宽 18%」里更大的那个：
+                                // 大屏手机按比例更严格，小屏也不会因为 100dp 太短而误触。
+                                val threshold = maxOf(SWIPE_THRESHOLD_DP.toPx(), width * 0.18f)
+                                detectHorizontalDragGestures(
+                                    onDragEnd = {
+                                        val current = offsetX.value
+                                        scope.launch {
+                                            when {
+                                                // 拖过阈值：滑出 → 切月 → 归零，视觉上连续不闪
+                                                current <= -threshold -> {
+                                                    offsetX.animateTo(
+                                                        -width,
+                                                        tween(SLIDE_OUT_MS, easing = FastOutSlowInEasing),
+                                                    )
+                                                    viewModel.nextMonth()
+                                                    offsetX.snapTo(0f)
+                                                }
+                                                current >= threshold -> {
+                                                    offsetX.animateTo(
+                                                        width,
+                                                        tween(SLIDE_OUT_MS, easing = FastOutSlowInEasing),
+                                                    )
+                                                    viewModel.previousMonth()
+                                                    offsetX.snapTo(0f)
+                                                }
+                                                // 没拖够：带回弹地滑回原位
+                                                else -> offsetX.animateTo(
+                                                    0f,
+                                                    spring(
+                                                        dampingRatio = Spring.DampingRatioNoBouncy,
+                                                        stiffness = Spring.StiffnessMediumLow,
+                                                    ),
+                                                )
+                                            }
+                                        }
+                                    },
+                                    onDragCancel = {
+                                        scope.launch { offsetX.animateTo(0f, spring()) }
+                                    },
+                                ) { _, dragAmount ->
+                                    // 跟着手指实时位移（限制在一屏宽内，避免拖出边界）
+                                    scope.launch {
+                                        offsetX.snapTo((offsetX.value + dragAmount).coerceIn(-width, width))
+                                    }
+                                }
+                            },
+                    ) {
+                        val widthPx = constraints.maxWidth.toFloat()
+                        // 三层叠放：左邻月、当前月、右邻月，都跟着 offsetX 平移。
+                        // 拖动时左邻/右邻自然从侧边露出，手感就是"日历跟着手指走"。
+                        MonthPage(
+                            month = state.month.minusMonths(1),
+                            state = state,
+                            shiftPx = offsetX.value - widthPx,
+                            onSelect = viewModel::selectDate,
+                            onLongSelect = { date -> markTarget = date },
+                        )
+                        MonthPage(
+                            month = state.month.plusMonths(1),
+                            state = state,
+                            shiftPx = offsetX.value + widthPx,
+                            onSelect = viewModel::selectDate,
+                            onLongSelect = { date -> markTarget = date },
+                        )
+                        MonthPage(
+                            month = state.month,
+                            state = state,
+                            shiftPx = offsetX.value,
                             onSelect = viewModel::selectDate,
                             onLongSelect = { date -> markTarget = date },
                         )
@@ -535,6 +570,33 @@ private fun MarkDayDialog(
     )
 }
 
+/**
+ * 日历里"一页月份"：按 [shiftPx] 水平平移，供跟随手指拖动时叠放三层使用。
+ *
+ * 只有 [month] 正好是当前选中月份时才用真实的标记/日期性质数据；
+ * 左右相邻月只画日期数字（拖动时一瞥，不需要那些细节），避免闪错数据。
+ */
+@Composable
+private fun MonthPage(
+    month: YearMonth,
+    state: CalendarUiState,
+    shiftPx: Float,
+    onSelect: (LocalDate) -> Unit,
+    onLongSelect: (LocalDate) -> Unit,
+) {
+    val isCurrent = month == state.month
+    Box(modifier = Modifier.offset { IntOffset(shiftPx.roundToInt(), 0) }) {
+        MonthGrid(
+            month = month,
+            selected = if (isCurrent) state.selectedDate else month.atDay(1),
+            markers = if (isCurrent) state.markers else emptyMap(),
+            dayKinds = if (isCurrent) state.dayKinds else emptyMap(),
+            onSelect = onSelect,
+            onLongSelect = onLongSelect,
+        )
+    }
+}
+
 @Composable
 private fun MonthGrid(
     month: YearMonth,
@@ -781,6 +843,9 @@ private fun breakByWord(text: String): String = when (text) {
  * 用 dp 而不是像素，保证不同屏幕密度下手感一致。
  */
 private val SWIPE_THRESHOLD_DP = 100.dp
+
+/** 松手后"滑出并切月"的动画时长（毫秒）。短一点更跟手。 */
+private const val SLIDE_OUT_MS = 200
 
 /** 休息 / 法定节假日用暖红，和系统日历一致；深色模式下调亮一点保证对比。 */
 private val RestAccent: Color
