@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
@@ -572,10 +573,11 @@ private fun DayKindBadge(info: com.overtimelog.core.model.DayInfo) {
         com.overtimelog.core.model.DayKind.MAKEUP_WORKDAY -> "调休补班" to MakeupAccent
         com.overtimelog.core.model.DayKind.WORKDAY -> "工作日" to MaterialTheme.colorScheme.onSurfaceVariant
     }
-    // 宽度 = 「3 个字」：labelSmall 11sp，字宽约 11dp，3 字 33dp + 左右内边距。
-    // 3 字以内单行居中；更长的按词语拆成多行（换行位置由 [breakByWord] 显式指定，
-    // 不依赖自动换行——中文任意字符间都能断，自动换行会断出「法定节」/「假日」）。
-    val threeCharWidth = 48.dp
+    // 框体最小宽度 = 「3 个字」（labelSmall 约 11sp/字，3 字 33dp + 内边距）。
+    // 用 widthIn(min = ...) 而不是固定 width：系统字体调大时框体可以跟着长，
+    // 但绝不会把 3 个字的词挤成两行（固定宽度 + 大字号就是「休息日」被换行的原因）。
+    // softWrap = false：禁止按宽度自动换行，只有 [breakByWord] 里的显式 \n 才换行。
+    val threeCharMinWidth = 48.dp
     Surface(shape = RoundedCornerShape(6.dp), color = color.copy(alpha = 0.12f)) {
         Text(
             text = breakByWord(text),
@@ -583,9 +585,10 @@ private fun DayKindBadge(info: com.overtimelog.core.model.DayInfo) {
             color = color,
             textAlign = TextAlign.Center,
             lineHeight = 14.sp,
+            softWrap = false,
             modifier = Modifier
-                .width(threeCharWidth)
-                .padding(horizontal = 3.dp, vertical = 3.dp),
+                .widthIn(min = threeCharMinWidth)
+                .padding(horizontal = 4.dp, vertical = 3.dp),
         )
     }
 }
