@@ -25,6 +25,8 @@ data class DayMarker(
     val day: LocalDate,
     val types: Set<OvertimeType>,
     val count: Int,
+    /** 当天加班总分钟数，日历格子里显示成「小时数」小字。 */
+    val totalMinutes: Int = 0,
 )
 
 /**

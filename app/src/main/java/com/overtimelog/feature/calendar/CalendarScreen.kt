@@ -62,6 +62,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.overtimelog.core.model.OvertimeRecord
 import com.overtimelog.di.AppContainer
 import com.overtimelog.ui.common.DateTexts
+import com.overtimelog.ui.common.ShortHours
 import com.overtimelog.ui.components.ConfirmDialog
 import com.overtimelog.ui.components.EmptyState
 import com.overtimelog.ui.components.MonthSwitcher
@@ -406,8 +407,9 @@ private fun MonthGrid(
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            // 格子比宽度高一点，才放得下"日期 + 节日名 + 休/班角标"
-                            .height(56.dp)
+                            // 格子高度加大到 64dp：要放"日期 + 加班小时数 + 休/班角标 + 节日名"
+                            // 这么多信息，56dp 会把小时数挤到和节日名重叠。
+                            .height(64.dp)
                             .padding(2.dp),
                         contentAlignment = Alignment.Center,
                     ) {
@@ -467,6 +469,9 @@ private fun DayCell(
     }
     // 节日名只在格子下方显示前 2 个字，像"国庆""春节"，和系统日历一致
     val label = dayInfo?.name?.take(2).orEmpty()
+    // 当天加班小时数（有记录才显示）。格式取最紧凑的："3h" / "2.5h"，
+    // 字号比日期数字小两档（bodyMedium 14sp → labelSmall 11sp），不抢日期的视觉重量。
+    val hoursText = marker?.takeIf { it.totalMinutes > 0 }?.let { ShortHours.of(it.totalMinutes) }
 
     Box(
         modifier = Modifier
@@ -474,7 +479,7 @@ private fun DayCell(
             .clip(RoundedCornerShape(10.dp))
             .background(background)
             .combinedClickable(onClick = onClick, onLongClick = onLongClick)
-            .padding(vertical = 3.dp),
+            .padding(vertical = 2.dp),
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -484,6 +489,8 @@ private fun DayCell(
                 fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal,
                 color = dateColor,
             )
+            // 顺序：日期 → 节日名（有的话）→ 加班小时数。
+            // 有节日名时把小时数压到节日名下面，避免出现「日期/3h/国庆」这种把节日名顶走的排法。
             if (label.isNotEmpty()) {
                 Text(
                     text = label,
@@ -491,18 +498,16 @@ private fun DayCell(
                     color = if (isSelected) MaterialTheme.colorScheme.onPrimary else accent,
                     maxLines = 1,
                 )
-            } else if (marker != null) {
-                // 没有节日名时用加班类型圆点补位，两种信息不互相挤
-                Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                    marker.types.take(3).forEach { type ->
-                        Box(
-                            modifier = Modifier
-                                .size(4.dp)
-                                .clip(CircleShape)
-                                .background(if (isSelected) MaterialTheme.colorScheme.onPrimary else type.color()),
-                        )
-                    }
-                }
+            }
+            if (hoursText != null) {
+                // 加班小时数：比日期小两号，用主色/选中色，一眼能看出"这天有加班、加了几小时"
+                Text(
+                    text = hoursText,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Medium,
+                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                )
             }
         }
         // 右上角「休 / 班」角标

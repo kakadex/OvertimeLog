@@ -154,6 +154,7 @@ class RoomOvertimeRepository(
             .map { OvertimeType.fromCode(it) }
             .toSet(),
         count = count,
+        totalMinutes = totalMinutes,
     )
 }
 

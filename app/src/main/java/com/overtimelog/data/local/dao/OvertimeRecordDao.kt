@@ -26,11 +26,13 @@ data class MonthTotalsRow(
     val overtimeDays: Int,
 )
 
-/** 日历用的轻量投影：哪些天有记录、有哪些类型。 */
+/** 日历用的轻量投影：哪些天有记录、有哪些类型、当天总加班分钟数。 */
 data class DayMarkerRow(
     val day: Long,
     val count: Int,
     val types: String?,
+    /** 当天所有记录的时长合计，日历格子用它显示「几小时」。 */
+    val totalMinutes: Int,
 )
 
 /** 年度统计的按月聚合行。[month] 是 1..12。 */
@@ -144,7 +146,10 @@ interface OvertimeRecordDao {
 
     @Query(
         """
-        SELECT date_epoch_day AS day, COUNT(*) AS count, GROUP_CONCAT(DISTINCT type) AS types
+        SELECT date_epoch_day AS day,
+               COUNT(*) AS count,
+               GROUP_CONCAT(DISTINCT type) AS types,
+               COALESCE(SUM(duration_minutes), 0) AS totalMinutes
         FROM overtime_records
         WHERE date_epoch_day BETWEEN :from AND :to
         GROUP BY date_epoch_day
