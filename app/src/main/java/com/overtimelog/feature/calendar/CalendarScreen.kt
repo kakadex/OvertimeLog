@@ -1,5 +1,13 @@
 package com.overtimelog.feature.calendar
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -211,13 +219,16 @@ fun CalendarScreen(
                     // 左右滑动切换月份：在月历网格这一块区域上识别水平拖动，
                     // 向左滑 → 下个月，向右滑 → 上个月（跟随常见日历 App 的手感）。
                     // 只挂在日历区域而不是整页，避免抢掉列表上下滚动。
-                    modifier = Modifier.pointerInput(state.month) {
+                    modifier = Modifier.pointerInput(Unit) {
+                        // 阈值按 dp 转像素：不同密度的机型手感一致，
+                        // 取 100dp —— 比之前的 150px（约 57dp）更严格，轻扫不会误切月。
+                        val thresholdPx = SWIPE_THRESHOLD_DP.toPx()
                         var dragTotalX = 0f
                         detectHorizontalDragGestures(
                             onDragEnd = {
                                 when {
-                                    dragTotalX <= -SWIPE_THRESHOLD_PX -> viewModel.nextMonth()
-                                    dragTotalX >= SWIPE_THRESHOLD_PX -> viewModel.previousMonth()
+                                    dragTotalX <= -thresholdPx -> viewModel.nextMonth()
+                                    dragTotalX >= thresholdPx -> viewModel.previousMonth()
                                 }
                                 dragTotalX = 0f
                             },
@@ -239,14 +250,37 @@ fun CalendarScreen(
                         }
                     }
                     Spacer(Modifier.height(6.dp))
-                    MonthGrid(
-                        month = state.month,
-                        selected = state.selectedDate,
-                        markers = state.markers,
-                        dayKinds = state.dayKinds,
-                        onSelect = viewModel::selectDate,
-                        onLongSelect = { date -> markTarget = date },
-                    )
+                    // 切月动画：新月份整块从侧边滑入、旧月份反向滑出，并淡入淡出。
+                    // 向前（点下个月/左滑）新内容从右进；向后从左进，方向和手指一致。
+                    AnimatedContent(
+                        targetState = state.month,
+                        transitionSpec = {
+                            val forward = targetState > initialState
+                            val duration = 240
+                            (
+                                slideInHorizontally(tween(duration, easing = FastOutSlowInEasing)) { width ->
+                                    if (forward) width else -width
+                                } + fadeIn(tween(duration))
+                                ) togetherWith (
+                                slideOutHorizontally(tween(duration, easing = FastOutSlowInEasing)) { width ->
+                                    if (forward) -width else width
+                                } + fadeOut(tween(duration))
+                                )
+                        },
+                        label = "calendar-month",
+                    ) { animatedMonth ->
+                        // 动画期间旧月份还在屏幕上，它不该用新月份的数据：
+                        // 只有和当前选中月份一致时才用真实的标记/属性，否则给空，避免闪一下错数据。
+                        val isCurrent = animatedMonth == state.month
+                        MonthGrid(
+                            month = animatedMonth,
+                            selected = if (isCurrent) state.selectedDate else animatedMonth.atDay(1),
+                            markers = if (isCurrent) state.markers else emptyMap(),
+                            dayKinds = if (isCurrent) state.dayKinds else emptyMap(),
+                            onSelect = viewModel::selectDate,
+                            onLongSelect = { date -> markTarget = date },
+                        )
+                    }
                     Spacer(Modifier.height(8.dp))
                     DayKindLegend()
                     if (!state.hasHolidayData) {
@@ -740,8 +774,13 @@ private fun breakByWord(text: String): String = when (text) {
     else -> text
 }
 
-/** 左右滑动切换月份的最小位移（像素）。约 60dp 对应的粗略值，太小会误触。 */
-private const val SWIPE_THRESHOLD_PX = 150f
+/**
+ * 左右滑动切换月份的最小位移（dp）。
+ *
+ * 取 100dp：比"随手一划"更严格，避免点按某天时手指轻微移动就误切月份；
+ * 用 dp 而不是像素，保证不同屏幕密度下手感一致。
+ */
+private val SWIPE_THRESHOLD_DP = 100.dp
 
 /** 休息 / 法定节假日用暖红，和系统日历一致；深色模式下调亮一点保证对比。 */
 private val RestAccent: Color
