@@ -139,31 +139,45 @@ fun RecordsScreen(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
             )
 
-            // 类型筛选固定分两行（由产品确认的排版）：
-            // 第一行「全部类型 / 工作日 / 休息日」，第二行「法定节假日 / 自定义」。
-            // 不依赖自动换行——自动换行会随屏幕宽度和系统字号变，行数不固定。
-            Column(
+            // 类型筛选：左侧「全部类型」，右侧固定两行
+            // 第一行「工作日 / 休息日」，第二行「法定节假日 / 自定义」。
+            // 「全部类型」垂直居中于右侧两行（Alignment.CenterVertically）。
+            // 右侧用两个显式 Row 而不是自动换行：行数不随屏幕宽度和系统字号变，各机型一致。
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf<OvertimeType?>(null, OvertimeType.WORKDAY, OvertimeType.REST_DAY).forEach { type ->
-                        FilterChip(
-                            selected = state.filter.type == type,
-                            onClick = { viewModel.setType(type) },
-                            label = { Text(type?.label() ?: "全部类型") },
-                        )
+                FilterChip(
+                    selected = state.filter.type == null,
+                    onClick = { viewModel.setType(null) },
+                    label = { Text("全部类型") },
+                )
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf(OvertimeType.WORKDAY, OvertimeType.REST_DAY).forEach { type ->
+                            FilterChip(
+                                selected = state.filter.type == type,
+                                // 再点一次已选中的类型 = 取消筛选（回到「全部类型」）
+                                onClick = {
+                                    viewModel.setType(if (state.filter.type == type) null else type)
+                                },
+                                label = { Text(type.label()) },
+                            )
+                        }
                     }
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(OvertimeType.HOLIDAY, OvertimeType.CUSTOM).forEach { type ->
-                        FilterChip(
-                            selected = state.filter.type == type,
-                            onClick = { viewModel.setType(type) },
-                            label = { Text(type.label()) },
-                        )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf(OvertimeType.HOLIDAY, OvertimeType.CUSTOM).forEach { type ->
+                            FilterChip(
+                                selected = state.filter.type == type,
+                                onClick = {
+                                    viewModel.setType(if (state.filter.type == type) null else type)
+                                },
+                                label = { Text(type.label()) },
+                            )
+                        }
                     }
                 }
             }
