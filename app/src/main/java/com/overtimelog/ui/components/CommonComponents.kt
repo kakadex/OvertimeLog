@@ -161,7 +161,9 @@ fun EmptyState(text: String, modifier: Modifier = Modifier) {
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
-            text = text,
+            // 中文排版习惯：首行缩进两个字符。用「全角空格 x2」实现，
+            // 只影响第一行，后面的行仍然顶格自然换行（不会整段右侧被推）。
+            text = "\u3000\u3000" + text,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

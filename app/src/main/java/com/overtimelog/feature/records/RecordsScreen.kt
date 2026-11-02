@@ -3,6 +3,8 @@ package com.overtimelog.feature.records
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -14,7 +16,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -62,7 +63,7 @@ import java.time.YearMonth
 /**
  * 记录列表页：按月/类型/结算状态筛选，支持备注搜索、删除（带撤销）、标记结算。
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun RecordsScreen(
     container: AppContainer,
@@ -138,13 +139,17 @@ fun RecordsScreen(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
             )
 
-            LazyRow(
-                modifier = Modifier.fillMaxWidth(),
-                contentPadding = PaddingValues(horizontal = 16.dp),
+            // 类型筛选用 FlowRow 自动换行：屏幕放不下时整块换到下一行，
+            // 不会再把「法定节假日」挤出屏幕右边（原来用 LazyRow 只能横向滚动，看不见）。
+            FlowRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 val typeOptions = listOf<OvertimeType?>(null) + OvertimeType.entries
-                items(typeOptions) { type ->
+                typeOptions.forEach { type ->
                     FilterChip(
                         selected = state.filter.type == type,
                         onClick = { viewModel.setType(type) },
@@ -153,11 +158,13 @@ fun RecordsScreen(
                 }
             }
 
-            Row(
+            // 结算状态整体下移一行：与上方类型筛选拉开距离，视觉上分成两组筛选
+            FlowRow(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 val settlementOptions = listOf<SettlementStatus?>(null) +
                     listOf(SettlementStatus.UNSETTLED, SettlementStatus.SETTLED)
@@ -174,7 +181,10 @@ fun RecordsScreen(
                 EmptyState(
                     text = if (state.filter.keyword.isNotBlank()) "没有匹配「${state.filter.keyword}」的记录"
                     else "这个月还没有记录，到「日历」页点「这天记一笔」开始",
-                    modifier = Modifier.padding(top = 24.dp),
+                    // 左右各留 19dp（160dpi 基准下 3mm ≈ 0.118 英寸 ≈ 18.9dp，取 19dp），
+                    // 文案不顶到屏幕边框，同时不至于缩得太窄。
+                    modifier = Modifier
+                        .padding(start = 19.dp, end = 19.dp, top = 24.dp),
                 )
             } else {
                 LazyColumn(
