@@ -139,22 +139,32 @@ fun RecordsScreen(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
             )
 
-            // 类型筛选用 FlowRow 自动换行：屏幕放不下时整块换到下一行，
-            // 不会再把「法定节假日」挤出屏幕右边（原来用 LazyRow 只能横向滚动，看不见）。
-            FlowRow(
+            // 类型筛选固定分两行（由产品确认的排版）：
+            // 第一行「全部类型 / 工作日 / 休息日」，第二行「法定节假日 / 自定义」。
+            // 不依赖自动换行——自动换行会随屏幕宽度和系统字号变，行数不固定。
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                val typeOptions = listOf<OvertimeType?>(null) + OvertimeType.entries
-                typeOptions.forEach { type ->
-                    FilterChip(
-                        selected = state.filter.type == type,
-                        onClick = { viewModel.setType(type) },
-                        label = { Text(type?.label() ?: "全部类型") },
-                    )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf<OvertimeType?>(null, OvertimeType.WORKDAY, OvertimeType.REST_DAY).forEach { type ->
+                        FilterChip(
+                            selected = state.filter.type == type,
+                            onClick = { viewModel.setType(type) },
+                            label = { Text(type?.label() ?: "全部类型") },
+                        )
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(OvertimeType.HOLIDAY, OvertimeType.CUSTOM).forEach { type ->
+                        FilterChip(
+                            selected = state.filter.type == type,
+                            onClick = { viewModel.setType(type) },
+                            label = { Text(type.label()) },
+                        )
+                    }
                 }
             }
 
