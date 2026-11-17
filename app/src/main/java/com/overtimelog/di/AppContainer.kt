@@ -3,6 +3,8 @@ package com.overtimelog.di
 import android.content.Context
 import com.overtimelog.BuildConfig
 import com.overtimelog.core.calculation.CalculationEngine
+import com.overtimelog.core.model.DayHints
+import com.overtimelog.core.model.DayKind
 import com.overtimelog.data.export.ContentResolverUriSink
 import com.overtimelog.data.export.CsvExporter
 import com.overtimelog.data.local.db.AppDatabase
@@ -33,9 +35,12 @@ import com.overtimelog.domain.usecase.UpdateOvertimeRecordUseCase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import java.time.Clock
+import java.time.LocalDate
 
 /**
  * 手动依赖容器。
@@ -67,6 +72,36 @@ class AppContainer(context: Context) {
     }
     val settingsRepository: SettingsRepository by lazy {
         DataStoreSettingsRepository(appContext)
+    }
+
+    /**
+     * 某天性质（休息日 / 法定节假日 / 调休补班）的三层输入，日历页和录入页共用这一份。
+     *
+     * 优先级：用户手动改 > 远程更新 > 内置常量 > 星期几，判断本身在 [DayHints.resolve] 里。
+     * 两页用同一份数据，才不会出现"日历标着节假日、录入页默认却是工作日"。
+     */
+    val dayHints: Flow<DayHints> by lazy {
+        settingsRepository.settings.map { settings ->
+            DayHints(
+                manual = settings.dayOverrides.mapNotNull { (dateText, kindCode) ->
+                    val date = runCatching { LocalDate.parse(dateText) }.getOrNull() ?: return@mapNotNull null
+                    val kind = DayKind.fromCode(kindCode) ?: return@mapNotNull null
+                    date to kind
+                }.toMap(),
+                remote = settings.remoteHolidays.mapNotNull { entry ->
+                    val parts = entry.split('=')
+                    if (parts.size != 2) return@mapNotNull null
+                    val date = runCatching { LocalDate.parse(parts[0]) }.getOrNull() ?: return@mapNotNull null
+                    val value = parts[1]
+                    val name = value.substringBeforeLast('|', value)
+                    val holiday = value.substringAfterLast('|', "1") == "1"
+                    date to (name to holiday)
+                }.toMap(),
+                remoteYears = settings.remoteHolidays
+                    .mapNotNull { it.substringBefore('-').toIntOrNull() }
+                    .toSet(),
+            )
+        }
     }
 
     val updateRepository: UpdateRepository by lazy { HttpUpdateRepository() }

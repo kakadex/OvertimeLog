@@ -1,6 +1,5 @@
 package com.overtimelog.domain.repository
 
-import com.overtimelog.core.model.OvertimeType
 import com.overtimelog.data.settings.AppSettings
 import com.overtimelog.data.settings.BreakUnit
 import com.overtimelog.data.settings.ThemeMode
@@ -13,7 +12,6 @@ interface SettingsRepository {
     suspend fun setDefaultBreakMinutes(minutes: Int)
     suspend fun setBreakUnit(unit: BreakUnit)
     suspend fun setDefaultTimes(start: LocalTime, end: LocalTime)
-    suspend fun setDefaultOvertimeType(type: OvertimeType)
     /** 切换「简单记模式」：开启后录入页只填加班小时数，不问上下班时间。 */
     suspend fun setSimpleEntryMode(enabled: Boolean)
     /** 简单记模式预填的小时数（字符串，保留用户输入的原文）。 */

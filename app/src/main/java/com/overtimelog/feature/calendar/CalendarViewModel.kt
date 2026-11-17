@@ -5,7 +5,6 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.overtimelog.core.model.DayKind
-import com.overtimelog.core.model.HolidayCalendar
 import com.overtimelog.core.model.OvertimeRecord
 import com.overtimelog.di.AppContainer
 import com.overtimelog.domain.repository.DayMarker
@@ -75,37 +74,8 @@ class CalendarViewModel(
         container.overtimeRepository.observeDayRecords(date)
     }
 
-    /** 用户手动改过的日期：`2026-10-10=MAKEUP_WORKDAY` -> Map。 */
-    private val overrides = container.settingsRepository.settings.map { settings ->
-        settings.dayOverrides.mapNotNull { (dateText, kindCode) ->
-            val day = runCatching { LocalDate.parse(dateText) }.getOrNull() ?: return@mapNotNull null
-            val dayKind = DayKind.fromCode(kindCode) ?: return@mapNotNull null
-            day to dayKind
-        }.toMap()
-    }
-
-    /** 远程更新下来的安排：`2027-10-01=国庆节|1` -> Map(日期 -> 名称/是否放假)。 */
-    private val remoteHolidays = container.settingsRepository.settings.map { settings ->
-        settings.remoteHolidays.mapNotNull { entry ->
-            val parts = entry.split('=')
-            if (parts.size != 2) return@mapNotNull null
-            val day = runCatching { LocalDate.parse(parts[0]) }.getOrNull() ?: return@mapNotNull null
-            val value = parts[1]
-            val name = value.substringBeforeLast('|', value)
-            val holiday = value.substringAfterLast('|', "1") == "1"
-            day to (name to holiday)
-        }.toMap()
-    }
-
-    /** 已缓存了哪些年份的远程数据，用来判断"这一年有没有安排"。 */
-    private val remoteYears = container.settingsRepository.settings.map { settings ->
-        settings.remoteHolidays.mapNotNull { it.substringBefore('-').toIntOrNull() }.toSet()
-    }
-
-    /** 两份"日期性质"输入（手动改动 + 远程数据）先合成一份，避免 combine 参数过多。 */
-    private val dayHints = combine(overrides, remoteHolidays, remoteYears) { manual, remote, years ->
-        DayHints(manual = manual, remote = remote, years = years)
-    }
+    /** 用户手动改过的日期、远程更新下来的安排、已缓存年份：都由容器统一解析，见 [AppContainer.dayHints]。 */
+    private val dayHints = container.dayHints
 
     val uiState: StateFlow<CalendarUiState> = combine(
         month,
@@ -116,7 +86,7 @@ class CalendarViewModel(
     ) { currentMonth, date, markerList, records, hints ->
         val kinds = (1..currentMonth.lengthOfMonth()).associate { dayOfMonth ->
             val day = currentMonth.atDay(dayOfMonth)
-            day to HolidayCalendar.resolve(day, hints.manual, hints.remote)
+            day to hints.resolve(day)
         }
         CalendarUiState(
             month = currentMonth,
@@ -124,17 +94,10 @@ class CalendarViewModel(
             markers = markerList.associateBy { it.day },
             dayRecords = records,
             dayKinds = kinds,
-            selectedDayInfo = kinds[date] ?: HolidayCalendar.resolve(date, hints.manual, hints.remote),
-            hasHolidayData = HolidayCalendar.hasDataFor(currentMonth.year, hints.years),
+            selectedDayInfo = kinds[date] ?: hints.resolve(date),
+            hasHolidayData = hints.hasDataFor(currentMonth.year),
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(30_000), CalendarUiState())
-
-    /** 日期性质的三种输入：手动改动优先，其次远程数据，最后内置常量。 */
-    private data class DayHints(
-        val manual: Map<LocalDate, DayKind>,
-        val remote: Map<LocalDate, Pair<String, Boolean>>,
-        val years: Set<Int>,
-    )
 
     fun previousMonth() {
         val target = month.value.minusMonths(1)

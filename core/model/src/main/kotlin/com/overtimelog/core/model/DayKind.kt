@@ -23,6 +23,18 @@ enum class DayKind(val code: String) {
     MAKEUP_WORKDAY("MAKEUP_WORKDAY"),
     ;
 
+    /**
+     * 这天默认按哪种加班类型记（新建记录时的初始值）。
+     *
+     * 补班日虽然落在周末，但性质是"要上班的工作日"，所以同样按 [OvertimeType.WORKDAY] 算；
+     * 这里只决定默认值，用户随时可以在录入页改成别的类型。
+     */
+    fun defaultOvertimeType(): OvertimeType = when (this) {
+        WORKDAY, MAKEUP_WORKDAY -> OvertimeType.WORKDAY
+        REST_DAY -> OvertimeType.REST_DAY
+        HOLIDAY -> OvertimeType.HOLIDAY
+    }
+
     companion object {
         fun fromCode(code: String?): DayKind? = entries.firstOrNull { it.code == code }
     }
@@ -37,6 +49,53 @@ data class DayInfo(
     /** 用户自己改过（覆盖了内置数据），界面可以标记一下。 */
     val manual: Boolean = false,
 )
+
+/**
+ * 判断某天性质要用的三层输入。
+ *
+ * 日历页（标「休 / 班」）和录入页（决定默认加班类型）都从这里取，
+ * 只解析一次设置、只在一个地方定义优先级，两页才不会得出不一样的结论。
+ */
+data class DayHints(
+    /** 用户手动改过的日期 -> 性质，优先级最高。 */
+    val manual: Map<LocalDate, DayKind> = emptyMap(),
+    /** 远程更新下来的日期 -> (名称, 是否放假)，优先级低于手动改动。 */
+    val remote: Map<LocalDate, Pair<String, Boolean>> = emptyMap(),
+    /** 已经缓存了哪些年份的远程数据，用来提示"这一年还没公布安排"。 */
+    val remoteYears: Set<Int> = emptySet(),
+) {
+    /** 某天是什么日子（手动 > 远程 > 内置 > 星期几）。 */
+    fun resolve(date: LocalDate): DayInfo = HolidayCalendar.resolve(date, manual, remote)
+
+    /** 某天默认按哪种加班类型记：休息日→休息日、法定节假日→法定节假日、补班→工作日。 */
+    fun defaultOvertimeType(date: LocalDate): OvertimeType = resolve(date).kind.defaultOvertimeType()
+
+    /**
+     * 换日期之后该用哪种加班类型。
+     *
+     * 规则只有一条：**用户亲手选过就听用户的，没选过就跟着日期走**。
+     * 抽成纯函数是为了能直接单测——这条规则错一次，用户就会看到"我明明选过又被改回去"。
+     *
+     * @param currentType 当前选中的类型
+     * @param manuallySet 用户是否亲手改过类型
+     */
+    fun typeAfterDateChange(
+        date: LocalDate,
+        currentType: OvertimeType,
+        manuallySet: Boolean,
+    ): OvertimeType = if (manuallySet) currentType else defaultOvertimeType(date)
+
+    /**
+     * 打开一条老记录时，它保存的类型算不算"用户亲手选的"。
+     *
+     * 等于那天自动判定的值 → 当初就是默认值，继续跟随日期；不等于 → 用户当年改过，保留。
+     */
+    fun isManualType(date: LocalDate, savedType: OvertimeType): Boolean =
+        savedType != defaultOvertimeType(date)
+
+    /** 某年是否有官方安排数据（内置或已通过远程更新拿到）。 */
+    fun hasDataFor(year: Int): Boolean = HolidayCalendar.hasDataFor(year, remoteYears)
+}
 
 /**
  * 中国法定节假日与调休安排。

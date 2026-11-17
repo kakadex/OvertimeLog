@@ -138,10 +138,6 @@ class SettingsViewModel(
         viewModelScope.launch { container.settingsRepository.setDefaultTimes(start, end) }
     }
 
-    fun setDefaultType(type: com.overtimelog.core.model.OvertimeType) {
-        viewModelScope.launch { container.settingsRepository.setDefaultOvertimeType(type) }
-    }
-
     fun setSimpleEntryMode(enabled: Boolean) {
         viewModelScope.launch { container.settingsRepository.setSimpleEntryMode(enabled) }
     }

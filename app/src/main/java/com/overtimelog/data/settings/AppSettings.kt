@@ -9,7 +9,6 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
-import com.overtimelog.core.model.OvertimeType
 import com.overtimelog.domain.repository.SettingsRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -56,7 +55,6 @@ data class AppSettings(
     val defaultBreakMinutes: Int = 0,
     /** 录入页休息扣除的输入单位，默认按小时。 */
     val breakUnit: BreakUnit = BreakUnit.HOURS,
-    val defaultOvertimeType: OvertimeType = OvertimeType.WORKDAY,
     /** 默认上班、下班时间，新建记录时直接带出来。 */
     val defaultStartTime: LocalTime = LocalTime.of(18, 0),
     val defaultEndTime: LocalTime = LocalTime.of(21, 0),
@@ -101,7 +99,6 @@ class DataStoreSettingsRepository(context: Context) : SettingsRepository {
         AppSettings(
             defaultBreakMinutes = prefs[KEY_DEFAULT_BREAK] ?: 0,
             breakUnit = BreakUnit.fromCode(prefs[KEY_BREAK_UNIT]),
-            defaultOvertimeType = OvertimeType.fromCode(prefs[KEY_DEFAULT_TYPE] ?: OvertimeType.WORKDAY.code),
             defaultStartTime = minutesOfDayToTime(prefs[KEY_DEFAULT_START] ?: DEFAULT_START_MINUTES),
             defaultEndTime = minutesOfDayToTime(prefs[KEY_DEFAULT_END] ?: DEFAULT_END_MINUTES),
             simpleEntryMode = prefs[KEY_SIMPLE_ENTRY_MODE] ?: false,
@@ -136,10 +133,6 @@ class DataStoreSettingsRepository(context: Context) : SettingsRepository {
             it[KEY_DEFAULT_START] = start.hour * 60 + start.minute
             it[KEY_DEFAULT_END] = end.hour * 60 + end.minute
         }
-    }
-
-    override suspend fun setDefaultOvertimeType(type: OvertimeType) {
-        store.edit { it[KEY_DEFAULT_TYPE] = type.code }
     }
 
     override suspend fun setSimpleEntryMode(enabled: Boolean) {
@@ -213,7 +206,6 @@ class DataStoreSettingsRepository(context: Context) : SettingsRepository {
 
         val KEY_DEFAULT_BREAK = intPreferencesKey("default_break_minutes")
         val KEY_BREAK_UNIT = stringPreferencesKey("break_unit")
-        val KEY_DEFAULT_TYPE = stringPreferencesKey("default_overtime_type")
         val KEY_DEFAULT_START = intPreferencesKey("default_start_minutes_of_day")
         val KEY_DEFAULT_END = intPreferencesKey("default_end_minutes_of_day")
         val KEY_SIMPLE_ENTRY_MODE = booleanPreferencesKey("simple_entry_mode")

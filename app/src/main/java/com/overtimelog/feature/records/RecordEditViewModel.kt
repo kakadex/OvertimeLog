@@ -6,6 +6,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.overtimelog.core.calculation.CalculationResult
 import com.overtimelog.core.model.CompTimeMode
+import com.overtimelog.core.model.DayInfo
 import com.overtimelog.core.model.DomainError
 import com.overtimelog.core.model.OvertimeType
 import com.overtimelog.core.model.SettlementStatus
@@ -50,6 +51,15 @@ data class RecordEditUiState(
     /** 简单记模式下用户填的小时数（原文），例如 "2.5"。 */
     val simpleHoursText: String = "3",
     val type: OvertimeType = OvertimeType.WORKDAY,
+    /**
+     * 用户是否亲手改过加班类型。
+     *
+     * 没改过时，换日期会让类型跟着新日期重新判定（休息日 / 节假日 / 补班各不同）；
+     * 改过之后就尊重用户的选择，不再被日期覆盖。
+     */
+    val typeManuallySet: Boolean = false,
+    /** 当前选中日期是什么日子，用来在「加班类型」旁边说明为什么默认是这个类型。 */
+    val dayInfo: DayInfo? = null,
     val compTimeMode: CompTimeMode = CompTimeMode.NONE,
     val manualAmountText: String = "",
     val manualCompText: String = "",
@@ -110,16 +120,23 @@ class RecordEditViewModel(
     init {
         viewModelScope.launch {
             val settings = container.settingsRepository.settings.first()
+            // 加班类型的默认值由"这一天本身是什么日子"决定，和设置里的偏好无关：
+            // 休息日→休息日、法定节假日→法定节假日、调休补班→工作日。
+            // 用与日历页完全相同的 resolve（手动改 > 远程 > 内置 > 星期几），两边不会打架。
+            val dayHints = container.dayHints.first()
+            val newRecordDate = initialDate ?: LocalDate.now()
             if (recordId == null) {
                 _state.update {
                     it.copy(
                         loading = false,
-                        date = initialDate ?: LocalDate.now(),
+                        date = newRecordDate,
                         start = settings.defaultStartTime,
                         end = settings.defaultEndTime,
                         breakUnit = settings.breakUnit,
                         breakText = BreakTime.format(settings.defaultBreakMinutes, settings.breakUnit),
-                        type = settings.defaultOvertimeType,
+                        type = dayHints.defaultOvertimeType(newRecordDate),
+                        typeManuallySet = false,
+                        dayInfo = dayHints.resolve(newRecordDate),
                         simpleMode = settings.simpleEntryMode,
                         simpleHoursText = settings.defaultSimpleHours,
                         editingSimpleOrigin = false,
@@ -131,6 +148,8 @@ class RecordEditViewModel(
                 if (record == null) {
                     _state.update { it.copy(loading = false, error = "记录不存在，可能已被删除") }
                 } else {
+                    // 老记录的类型本来就是用户当初确认过的；只有它恰好等于"那天自动判定出来的值"
+                    // 时才继续当作"跟随日期"，之后改日期才会跟着变，避免抹掉用户的手动选择。
                     _state.update {
                         it.copy(
                             loading = false,
@@ -140,6 +159,8 @@ class RecordEditViewModel(
                             breakUnit = settings.breakUnit,
                             breakText = BreakTime.format(record.breakMinutes, settings.breakUnit),
                             type = record.type,
+                            typeManuallySet = dayHints.isManualType(record.date, record.type),
+                            dayInfo = dayHints.resolve(record.date),
                             compTimeMode = record.compTimeMode,
                             manualCompText = record.compTimeMinutes.toString(),
                             manualAmountText = record.manualAmountCents?.let { cents ->
@@ -163,9 +184,24 @@ class RecordEditViewModel(
         }
     }
 
+    /**
+     * 换日期。
+     *
+     * 用户没亲手选过类型时，类型跟着新日期重新判定——这正是"默认跟随日期"的含义；
+     * 亲手选过就保留，不再被日期覆盖。
+     */
     fun onDateChange(date: LocalDate) {
-        _state.update { it.copy(date = date) }
-        refreshPreview()
+        viewModelScope.launch {
+            val hints = container.dayHints.first()
+            _state.update { current ->
+                current.copy(
+                    date = date,
+                    dayInfo = hints.resolve(date),
+                    type = hints.typeAfterDateChange(date, current.type, current.typeManuallySet),
+                )
+            }
+            refreshPreview()
+        }
     }
 
     fun onStartChange(time: LocalTime) {
@@ -200,8 +236,25 @@ class RecordEditViewModel(
     }
 
     fun onTypeChange(type: OvertimeType) {
-        _state.update { it.copy(type = type) }
+        // 记下"这是用户亲手选的"：之后再换日期也不会被自动判定覆盖。
+        _state.update { it.copy(type = type, typeManuallySet = true) }
         refreshPreview()
+    }
+
+    /** 用户点「恢复按日期判定」：把类型拉回当天性质对应的默认值。 */
+    fun resetTypeToDate() {
+        viewModelScope.launch {
+            val hints = container.dayHints.first()
+            _state.update {
+                val date = it.date
+                it.copy(
+                    dayInfo = hints.resolve(date),
+                    type = hints.defaultOvertimeType(date),
+                    typeManuallySet = false,
+                )
+            }
+            refreshPreview()
+        }
     }
 
     fun onCompTimeModeChange(mode: CompTimeMode) {

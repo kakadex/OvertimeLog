@@ -51,7 +51,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.overtimelog.core.model.OvertimeType
 import com.overtimelog.core.model.SalaryMode
 import com.overtimelog.data.settings.BreakUnit
 import com.overtimelog.data.settings.ThemeMode
@@ -311,22 +310,13 @@ fun SettingsScreen(
                             }
                         }
                         Spacer(Modifier.height(6.dp))
-                        Text("默认加班类型", style = MaterialTheme.typography.bodyMedium)
-                        // 四个选项一行放不下（"自定义"会被挤出屏幕），改成自动换行并整体居中：
-                        // 放不下时后面的选项整块换到下一行，不做横向压缩。
-                        FlowRow(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            OvertimeType.entries.forEach { type ->
-                                FilterChip(
-                                    selected = settings.defaultOvertimeType == type,
-                                    onClick = { viewModel.setDefaultType(type) },
-                                    label = { Text(type.label()) },
-                                )
-                            }
-                        }
+                        // 加班类型不再在这里设默认值：新建记录时由当天日期自动判定
+                        // （休息日→休息日、法定节假日→法定节假日、补班→工作日），录入页仍可改。
+                        Text(
+                            text = "加班类型按当天日期自动判定：休息日、法定节假日、调休补班各不相同，录入时还能改。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                 }
             }

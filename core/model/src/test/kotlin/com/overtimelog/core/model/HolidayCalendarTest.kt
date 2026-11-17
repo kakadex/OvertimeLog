@@ -92,4 +92,99 @@ class HolidayCalendarTest {
         assertTrue(HolidayCalendar.hasDataFor(2025))
         assertTrue(HolidayCalendar.hasDataFor(2026))
     }
+
+    // ---------- 默认加班类型跟随日期（2026-11-17 起） ----------
+
+    @Test
+    fun `plain weekday defaults to workday type`() {
+        // 星期二，不在任何假期里；性质是工作日，默认类型也必须是工作日
+        val date = LocalDate.of(2026, 10, 13)
+        assertEquals(DayKind.WORKDAY, HolidayCalendar.resolve(date).kind)
+        assertEquals(OvertimeType.WORKDAY, DayKind.WORKDAY.defaultOvertimeType())
+    }
+
+    @Test
+    fun `weekend defaults to rest day type`() {
+        assertEquals(OvertimeType.REST_DAY, DayKind.REST_DAY.defaultOvertimeType())
+    }
+
+    @Test
+    fun `national holiday defaults to holiday type`() {
+        assertEquals(OvertimeType.HOLIDAY, DayKind.HOLIDAY.defaultOvertimeType())
+    }
+
+    @Test
+    fun `makeup workday on weekend defaults to workday type not rest day`() {
+        // 补班日虽然落在周六日，但性质是"要上班"，默认必须按工作日算，不能按休息日
+        assertEquals(OvertimeType.WORKDAY, DayKind.MAKEUP_WORKDAY.defaultOvertimeType())
+    }
+
+    @Test
+    fun `day hints resolve default type for holiday makeup and weekend`() {
+        val hints = DayHints()
+        assertEquals(OvertimeType.HOLIDAY, hints.defaultOvertimeType(LocalDate.of(2026, 10, 1)))
+        assertEquals(OvertimeType.WORKDAY, hints.defaultOvertimeType(LocalDate.of(2026, 10, 10))) // 补班
+        assertEquals(OvertimeType.REST_DAY, hints.defaultOvertimeType(LocalDate.of(2026, 10, 17))) // 周六
+        assertEquals(OvertimeType.WORKDAY, hints.defaultOvertimeType(LocalDate.of(2026, 10, 13))) // 周二
+    }
+
+    @Test
+    fun `manual override changes the default type too`() {
+        // 用户把国庆某天手动改成"补班"，默认类型要跟着变成工作日——两处判定必须是同一份数据
+        val date = LocalDate.of(2026, 10, 1)
+        val hints = DayHints(manual = mapOf(date to DayKind.MAKEUP_WORKDAY))
+        assertEquals(OvertimeType.WORKDAY, hints.defaultOvertimeType(date))
+    }
+
+    @Test
+    fun `remote data changes the default type too`() {
+        val date = LocalDate.of(2026, 12, 25) // 周五，公司临时放假
+        val hints = DayHints(remote = mapOf(date to ("公司假期" to true)))
+        assertEquals(OvertimeType.HOLIDAY, hints.defaultOvertimeType(date))
+    }
+
+    @Test
+    fun `day hints report holiday data availability`() {
+        assertFalse(DayHints().hasDataFor(2029))
+        assertTrue(DayHints(remoteYears = setOf(2029)).hasDataFor(2029))
+        assertTrue(DayHints().hasDataFor(2026))
+    }
+
+    // ---------- 换日期时的类型联动（默认跟随日期，手动选过就保留） ----------
+
+    @Test
+    fun `changing date re-derives type when user never picked one`() {
+        val hints = DayHints()
+        val workday = LocalDate.of(2026, 10, 13) // 周二
+        val holiday = LocalDate.of(2026, 10, 1) // 国庆节
+        assertEquals(
+            OvertimeType.HOLIDAY,
+            hints.typeAfterDateChange(holiday, currentType = OvertimeType.WORKDAY, manuallySet = false),
+        )
+        assertEquals(
+            OvertimeType.WORKDAY,
+            hints.typeAfterDateChange(workday, currentType = OvertimeType.HOLIDAY, manuallySet = false),
+        )
+    }
+
+    @Test
+    fun `changing date keeps the user's own choice`() {
+        val hints = DayHints()
+        val workday = LocalDate.of(2026, 10, 13)
+        // 用户在工作日把这笔记成"法定节假日"（比如公司另给假），换日期不能被冲掉
+        assertEquals(
+            OvertimeType.CUSTOM,
+            hints.typeAfterDateChange(workday, currentType = OvertimeType.CUSTOM, manuallySet = true),
+        )
+    }
+
+    @Test
+    fun `saved record type equal to the auto value is treated as default`() {
+        val hints = DayHints()
+        val holiday = LocalDate.of(2026, 10, 1)
+        // 当初就是默认值 → 继续跟随日期
+        assertFalse(hints.isManualType(holiday, OvertimeType.HOLIDAY))
+        // 当初改过 → 保留
+        assertTrue(hints.isManualType(holiday, OvertimeType.WORKDAY))
+    }
 }

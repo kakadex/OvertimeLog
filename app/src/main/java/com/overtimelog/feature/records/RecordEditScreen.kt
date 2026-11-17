@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -63,6 +64,7 @@ import com.overtimelog.ui.common.DateTexts
 import com.overtimelog.ui.common.Durations
 import com.overtimelog.ui.common.Money
 import com.overtimelog.ui.common.SimpleHours
+import com.overtimelog.ui.common.dayTypeHint
 import com.overtimelog.ui.common.label
 import com.overtimelog.ui.components.ConfirmDialog
 import com.overtimelog.ui.components.DatePickerModal
@@ -325,6 +327,21 @@ fun RecordEditScreen(
                                     onClick = { viewModel.onTypeChange(type) },
                                     label = { Text(type.label()) },
                                 )
+                            }
+                        }
+                        Spacer(Modifier.height(4.dp))
+                        // 说明默认值是怎么来的：这一天的性质决定初始选中项，改过之后就不再跟随。
+                        Text(
+                            text = dayTypeHint(state.dayInfo, state.type, state.typeManuallySet),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        if (state.typeManuallySet) {
+                            TextButton(
+                                onClick = { viewModel.resetTypeToDate() },
+                                contentPadding = PaddingValues(horizontal = 0.dp, vertical = 0.dp),
+                            ) {
+                                Text("恢复按日期判定", style = MaterialTheme.typography.bodySmall)
                             }
                         }
                         Spacer(Modifier.height(4.dp))
