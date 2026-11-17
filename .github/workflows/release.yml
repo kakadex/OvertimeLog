@@ -38,13 +38,15 @@ jobs:
 
       # Gradle 发行包默认指向腾讯云镜像（本地很快），GitHub runner 在海外偶尔很慢甚至超时；
       # 这里显式把发行包换成官方源，并缓存依赖，避免下载环节把整个 job 拖挂。
+      #
+      # 注意：不要再给 setup-gradle 传 arguments。v4 已废弃该参数，传了会直接报
+      # "The 'arguments' parameter is no longer supported"，整步失败（2026-11-17 实测）。
+      # --no-daemon 改为在各 gradlew 调用处显式传。
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           cache-read-only: false
           gradle-version: wrapper
-          # 不走 Daemon 常驻，CI 单次构建更省内存
-          arguments: --no-daemon
 
       - name: Use official Gradle distribution on CI
         run: |
@@ -110,12 +112,13 @@ jobs:
           # gradlew 在仓库里的权限位是 644（Windows 上提交的），CI 上必须显式加执行权限
           chmod +x gradlew
           # 注意：core:model 也有单测（日历放假判定），漏掉它等于少跑一半逻辑
-          ./gradlew :app:testDebugUnitTest :core:calculation:test :core:model:test --console=plain
+          # --no-daemon：CI 单次构建，不常驻守护进程更省内存（原来靠 setup-gradle 的 arguments 传，该参数已废弃）
+          ./gradlew :app:testDebugUnitTest :core:calculation:test :core:model:test --console=plain --no-daemon
 
       - name: Build release (R8 + ABI splits + AAB)
         run: |
           chmod +x gradlew
-          ./gradlew :app:assembleRelease :app:bundleRelease -PabiSplits=true --console=plain
+          ./gradlew :app:assembleRelease :app:bundleRelease -PabiSplits=true --console=plain --no-daemon
 
       - name: Stage artifacts with release naming
         run: |
