@@ -118,7 +118,12 @@ jobs:
       - name: Build release (R8 + ABI splits + AAB)
         run: |
           chmod +x gradlew
-          ./gradlew :app:assembleRelease :app:bundleRelease -PabiSplits=true --console=plain --no-daemon
+          # 必须分两次跑：AGP 不允许「ABI 拆分」和「AAB」在同一次构建里同时开。
+          # 合在一起会报 "Multiple shrunk-resources files found ... Please disable building
+          # multiple APKs when building an Android app bundle"（issuetracker.google.com/402800800）。
+          # 2026-11-17 实测：合在一条命令里 buildReleasePreBundle 必失败。
+          ./gradlew :app:assembleRelease -PabiSplits=true --console=plain --no-daemon
+          ./gradlew :app:bundleRelease --console=plain --no-daemon
 
       - name: Stage artifacts with release naming
         run: |
