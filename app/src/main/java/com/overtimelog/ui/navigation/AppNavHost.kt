@@ -17,8 +17,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.foundation.shape.CircleShape
@@ -45,7 +43,6 @@ import androidx.navigation.navArgument
 import com.overtimelog.di.AppContainer
 import com.overtimelog.feature.calendar.CalendarScreen
 import com.overtimelog.feature.comptime.CompTimeScreen
-import com.overtimelog.feature.overview.OverviewScreen
 import com.overtimelog.feature.records.RecordEditScreen
 import com.overtimelog.feature.records.RecordsScreen
 import com.overtimelog.feature.settings.LicenseScreen
@@ -57,11 +54,16 @@ import java.time.LocalDate
 
 /** 所有路由集中在这里。带参数的页面用 [edit] 这样的构造函数生成，避免页面里手拼字符串。 */
 object Routes {
-    const val OVERVIEW = "overview"
-    const val RECORDS = "records"
-    const val CALENDAR = "calendar"
     const val STATS = "stats"
+    const val CALENDAR = "calendar"
     const val SETTINGS = "settings"
+
+    /**
+     * 记录明细（原「记录」页）：从统计页的「查看明细」进入。
+     *
+     * 不再是底部主入口，但功能一个没少——搜索、跨月「全部月份」、按类型筛选、单条结算、删除撤销。
+     */
+    const val RECORDS = "records"
     const val COMP_TIME = "comptime"
     const val SALARY_RULE = "salary"
     const val PRIVACY = "privacy"
@@ -76,11 +78,15 @@ object Routes {
 
 private data class BottomItem(val route: String, val label: String, val icon: ImageVector)
 
+/**
+ * 底部三个主入口。
+ *
+ * 「概览」与「记录」已合并进「统计」：月度/年度汇总本来就和概览重复，
+ * 记录明细改成从统计页顶部的「查看明细」进入的二级页，底部不再占位。
+ */
 private val bottomItems = listOf(
-    BottomItem(Routes.OVERVIEW, "概览", Icons.Default.Home),
-    BottomItem(Routes.RECORDS, "记录", Icons.Default.List),
-    BottomItem(Routes.CALENDAR, "日历", Icons.Default.DateRange),
     BottomItem(Routes.STATS, "统计", Icons.Default.Star),
+    BottomItem(Routes.CALENDAR, "日历", Icons.Default.DateRange),
     BottomItem(Routes.SETTINGS, "设置", Icons.Default.Settings),
 )
 
@@ -149,8 +155,9 @@ private fun AppBottomBar(currentRoute: String?, onSelect: (String) -> Unit) {
 /**
  * 应用导航。
  *
- * 底部 5 个主入口；新增/编辑、调休、薪资规则、隐私说明是二级页面，进入后隐藏底栏，
- * 让用户专注于当前任务。
+ * 底部 3 个主入口（统计 / 日历 / 设置），**启动默认进日历**——记加班是最高频的入口，
+ * 而日历页能直接「这天记一笔」，比先进统计页再找入口少一步。
+ * 记录明细、调休、薪资规则、隐私说明、编辑页都是二级页面，进入后隐藏底栏。
  */
 @Composable
 fun OvertimeNavHost(container: AppContainer) {
@@ -177,7 +184,7 @@ fun OvertimeNavHost(container: AppContainer) {
     ) { padding ->
         NavHost(
             navController = navController,
-            startDestination = Routes.OVERVIEW,
+            startDestination = Routes.CALENDAR,
             modifier = Modifier.padding(bottom = padding.calculateBottomPadding()),
             // 底栏是高频操作，整页淡入淡出会明显"慢半拍"；这里全局关掉转场。
             enterTransition = { EnterTransition.None },
@@ -185,22 +192,6 @@ fun OvertimeNavHost(container: AppContainer) {
             popEnterTransition = { EnterTransition.None },
             popExitTransition = { ExitTransition.None },
         ) {
-            composable(Routes.OVERVIEW, enterTransition = { EnterTransition.None }, exitTransition = { ExitTransition.None }, popEnterTransition = { EnterTransition.None }, popExitTransition = { ExitTransition.None }) {
-                OverviewScreen(
-                    container = container,
-                    onOpenRecord = { id -> navController.navigate(Routes.edit(recordId = id)) },
-                    onOpenAllRecords = { navController.navigate(Routes.RECORDS) },
-                    onOpenCompTime = { navController.navigate(Routes.COMP_TIME) },
-                )
-            }
-
-            composable(Routes.RECORDS, enterTransition = { EnterTransition.None }, exitTransition = { ExitTransition.None }, popEnterTransition = { EnterTransition.None }, popExitTransition = { ExitTransition.None }) {
-                RecordsScreen(
-                    container = container,
-                    onOpenRecord = { id -> navController.navigate(Routes.edit(recordId = id)) },
-                )
-            }
-
             composable(Routes.CALENDAR, enterTransition = { EnterTransition.None }, exitTransition = { ExitTransition.None }, popEnterTransition = { EnterTransition.None }, popExitTransition = { ExitTransition.None }) {
                 CalendarScreen(
                     container = container,
@@ -210,7 +201,11 @@ fun OvertimeNavHost(container: AppContainer) {
             }
 
             composable(Routes.STATS, enterTransition = { EnterTransition.None }, exitTransition = { ExitTransition.None }, popEnterTransition = { EnterTransition.None }, popExitTransition = { ExitTransition.None }) {
-                StatsScreen(container = container)
+                StatsScreen(
+                    container = container,
+                    onOpenAllRecords = { navController.navigate(Routes.RECORDS) },
+                    onOpenCompTime = { navController.navigate(Routes.COMP_TIME) },
+                )
             }
 
             composable(Routes.SETTINGS, enterTransition = { EnterTransition.None }, exitTransition = { ExitTransition.None }, popEnterTransition = { EnterTransition.None }, popExitTransition = { ExitTransition.None }) {
@@ -219,6 +214,15 @@ fun OvertimeNavHost(container: AppContainer) {
                     onOpenSalaryRule = { navController.navigate(Routes.SALARY_RULE) },
                     onOpenPrivacy = { navController.navigate(Routes.PRIVACY) },
                     onOpenLicense = { navController.navigate(Routes.LICENSE) },
+                )
+            }
+
+            // 记录明细：统计页「查看明细」进入的二级页，返回时回到统计页
+            composable(Routes.RECORDS) {
+                RecordsScreen(
+                    container = container,
+                    onOpenRecord = { id -> navController.navigate(Routes.edit(recordId = id)) },
+                    onBack = { navController.popBackStack() },
                 )
             }
 

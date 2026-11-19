@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.DropdownMenu
@@ -63,13 +64,17 @@ import com.overtimelog.ui.components.RecordCard
 import java.time.YearMonth
 
 /**
- * 记录列表页：按月/类型/结算状态筛选，支持备注搜索、删除（带撤销）、标记结算。
+ * 记录明细页：按月/类型/结算状态筛选，支持备注搜索、删除（带撤销）、标记结算。
+ *
+ * 2026-11-19 起它不再是底部主入口，改为从统计页「查看明细」进入的二级页，
+ * 所以顶部多一个返回按钮。功能一个没减。
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun RecordsScreen(
     container: AppContainer,
     onOpenRecord: (Long) -> Unit,
+    onBack: () -> Unit = {},
 ) {
     val viewModel: RecordsViewModel = viewModel(factory = RecordsViewModel.factory(container))
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -100,7 +105,12 @@ fun RecordsScreen(
         topBar = {
             TopAppBar(
                 modifier = Modifier.windowInsetsPadding(WindowInsets.statusBars),
-                title = { Text("记录") },
+                title = { Text("记录明细") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "返回")
+                    }
+                },
                 actions = {
                     // 看的不是本月（含"全部月份"）时，右上角出现「今」回到本月
                     if (state.filter.month != YearMonth.now()) {

@@ -68,10 +68,19 @@ import java.time.YearMonth
  * 统计页：月度/年度汇总，按类型拆分。
  *
  * 图表先用 Compose 画简单的条形，不引入第三方图表库（Vico 留到 V1.1 再评估）。
+ *
+ * 「概览」与「记录」两个页面已合并到这一页：
+ * - 概览的本月数字 = 本页的月度合计（这里还多了按类型拆分与调休获得/使用）；
+ * - 记录明细改成本页顶部的「查看明细」二级页，搜索、跨月、按类型筛选一个没少；
+ * - 调休余额这一行可点，直接进调休明细。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun StatsScreen(container: AppContainer) {
+fun StatsScreen(
+    container: AppContainer,
+    onOpenAllRecords: () -> Unit = {},
+    onOpenCompTime: () -> Unit = {},
+) {
     val viewModel: StatsViewModel = viewModel(factory = StatsViewModel.factory(container))
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -138,6 +147,17 @@ fun StatsScreen(container: AppContainer) {
             }
 
             item {
+                // 「记录」页合并进来后的唯一入口：点进去是完整的明细列表
+                // （备注搜索、跨月「全部月份」、按类型筛选、单条改结算、删除撤销都在那一页）。
+                OutlinedButton(
+                    onClick = onOpenAllRecords,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("查看明细（搜索 / 筛选 / 跨月）")
+                }
+            }
+
+            item {
                 // 结算状态筛选：只统计对应状态的记录，SQL 里就过滤好，不是先全查再筛
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf<SettlementStatus?>(
@@ -181,7 +201,9 @@ fun StatsScreen(container: AppContainer) {
             }
 
             if (state.mode == StatsMode.MONTH) {
-                monthContent(state.monthSummary, state.settlement) { settled -> pendingSettled = settled }
+                monthContent(state.monthSummary, state.settlement, onOpenCompTime) { settled ->
+                    pendingSettled = settled
+                }
             } else {
                 yearContent(state.yearSummary)
             }
@@ -227,6 +249,7 @@ fun StatsScreen(container: AppContainer) {
 private fun androidx.compose.foundation.lazy.LazyListScope.monthContent(
     summary: MonthlySummary,
     settlement: SettlementStatus?,
+    onOpenCompTime: () -> Unit,
     onMarkSettled: (Boolean) -> Unit,
 ) {
     item {
@@ -255,7 +278,30 @@ private fun androidx.compose.foundation.lazy.LazyListScope.monthContent(
                     Durations.text(summary.compTimeEarnedMinutes),
                 )
                 InfoRow("调休使用", Durations.text(summary.compTimeUsedMinutes))
-                InfoRow("调休余额", Durations.text(summary.compTimeBalanceMinutes))
+                // 调休余额可点：进调休明细页（原来这个入口只在已删掉的概览页上）
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = onOpenCompTime)
+                        .padding(vertical = 6.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text(
+                        text = "调休余额",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        text = Durations.text(summary.compTimeBalanceMinutes) + " ›",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+                Text(
+                    text = "点「调休余额」看获得与使用明细",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
                 if (settlement != null) {
                     Spacer(Modifier.height(4.dp))
                     Text(
